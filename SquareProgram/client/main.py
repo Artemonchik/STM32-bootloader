@@ -39,6 +39,8 @@ def receive_data(serial_port: Serial, timeout: int = None):
     serial_port.timeout = timeout
 
     bytes_number_b = serial_port.read(4)
+    if(len(bytes_number_b) < 4):
+        return 0, 0, []
     bytes_number = int.from_bytes(bytes_number_b, 'little')
 
     data_type_b = serial_port.read(4)
@@ -70,7 +72,7 @@ def decode_data(data_type: int, data: bytes):
     :return: list of integers
     """
     if data_type == 1:
-        return data.decode('ascii')
+        return data.decode('koi8-r')
     else:
         result = [data[i:i + 4] for i in range(0, len(data), 4)]
     return list(map(lambda elem: int.from_bytes(elem, 'little'), result))
@@ -80,12 +82,13 @@ def decode_data(data_type: int, data: bytes):
 # send_data(serial_port, data_to_send, 5000)
 # print(f'List we want to send:\n{[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]}')
 # print(f'The binary data going to be send:\n {data_to_send}\n\n\n')
+serial_port.flushInput()
 while 1:
 
     num = serial_port.in_waiting
     sleep(0.1)
     if num > 0:
-        size, data_type, data = receive_data(serial_port, 3000)  # read the size of data we need to read
+        size, data_type, data = receive_data(serial_port, 3008)  # read the size of data we need to read
         # print(f"Was received {size} bytes")
         # print("The data was received:")
         print(decode_data(data_type, data))
