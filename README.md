@@ -1,7 +1,7 @@
 # Project: STM32-bootloader (NSU CS)
 The main goal of project is to make STM32-bootloader with ecryption
 
-## Team member:
+## Team members:
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; **Vasilev Pavel** 19213<br/>
 
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; **Patrushev Borya** 19213<br/>
