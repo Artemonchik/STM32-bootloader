@@ -23,6 +23,6 @@ The main goal of project is to make STM32-bootloader with ecryption
 [Terminal 1.9b for COM port](https://micro-pi.ru/wp-content/uploads/2016/10/Terminal1_9_b.zip)
 
 ## Release dates
-Prototype - in the end of the 4th semester (December 2020)
+Prototype - in the end of the 3rd semester (December 2020)
 
-Release - in the end of the 5th semester
+Release - in the end of the 4th semester
