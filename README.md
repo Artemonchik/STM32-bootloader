@@ -14,6 +14,14 @@ The main goal of project is to make STM32-bootloader with ecryption
 
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; **Litvinov Vasiliy**<br/>
 
+## Documentation:
+
+[Vision](https://github.com/Artemonchik/STM32-bootloader/blob/master/_Vision.pdf)
+
+[Software requirements specification](https://github.com/Artemonchik/STM32-bootloader/blob/master/SRS.docx.pdf)
+
+[Analysis of technical risks](https://github.com/Artemonchik/STM32-bootloader/blob/master/ATR.pdf)
+
 ## Links of useful programs:
 
 [STM32CubeIDE](https://www.st.com/en/development-tools/stm32cubeide.html)
