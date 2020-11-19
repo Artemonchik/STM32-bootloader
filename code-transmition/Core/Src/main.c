@@ -17,7 +17,16 @@
  ******************************************************************************
  */
 #define STR 1
+#define ERRORSTR 2
+#define PROGRAM 3
+#define PAGE_SIZE 2048
 //#define HAL_FLASH_MODULE_ENABLED
+//#define FLASH_BASE            0x08000000UL /*!< FLASH base address in the alias region */
+//#define CCMDATARAM_BASE       0x10000000UL /*!< CCM(core coupled memory) data RAM base address in the alias region     */
+//#define SRAM_BASE             0x20000000UL /*!< SRAM base address in the alias region */
+//#define PERIPH_BASE           0x40000000UL /*!< Peripheral base address in the alias region */
+//#define SRAM_BB_BASE          0x22000000UL /*!< SRAM base address in the bit-band region */
+//#define PERIPH_BB_BASE        0x42000000UL /*!< Peripheral base address in the bit-band region */
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
@@ -62,46 +71,88 @@ static void MX_USART1_UART_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-char testArr[5120] =
-		"be loaded. In most cases the two addresses will be the same. An";
-char test2Arr[5120] = "who copies the data section from ROM to RAM?";
-uint8_t dataBuffer[500];
-int wasSend = 0;
-
 /**
- * int len of data you want to send
+ * integer length value of data you want to send in special format
  */
-int sendData(UART_HandleTypeDef *huart, int32_t messageCode, uint8_t *data,
-		int32_t len, uint32_t timeout) {
+HAL_StatusTypeDef sendData(UART_HandleTypeDef *huart, int32_t messageCode, uint8_t *data,
+		uint32_t len, uint32_t timeout) {
 	HAL_UART_Transmit(huart, (uint8_t*) (&len), sizeof(len), timeout);
 	HAL_UART_Transmit(huart, (uint8_t*) (&messageCode), sizeof(messageCode),
 			timeout);
-	wasSend = HAL_UART_Transmit(huart, data, len, timeout);
-	return 0;
-}
-
-uint8_t* receiveData(UART_HandleTypeDef *huart, uint32_t timeout) {
-	HAL_UART_Receive(huart, dataBuffer, sizeof(int), timeout);
-	int len = *((int*) dataBuffer);
-	HAL_UART_Receive(huart, dataBuffer + sizeof(int), len, timeout);
-	return dataBuffer;
+	return HAL_UART_Transmit(huart, data, len, timeout);
 }
 
 /**
- * As you can see, max size of sending string after formating must be at most 250 characters*/
-void HAL_printf(const char *format, ...) {
+ * As you can see, max size of sending string after formating must be at most 255 characters*/
+HAL_StatusTypeDef HAL_printf(const char *format, ...) {
 	char buff[256];
 	va_list arg;
 	va_start(arg, format);
 	vsprintf(buff, format, arg);
-	sendData(&huart1, STR, (uint8_t*) buff, (int) strlen(buff), 3000);
+	HAL_StatusTypeDef result = sendData(&huart1, STR, (uint8_t*) buff, (int32_t) strlen(buff), 3000);
 	va_end(arg);
+	return result;
+}
+HAL_StatusTypeDef HAL_eprintf(const char *format, ...) {
+	char buff[256];
+	va_list arg;
+	va_start(arg, format);
+	vsprintf(buff, format, arg);
+	HAL_StatusTypeDef result = sendData(&huart1, ERRORSTR, (uint8_t*) buff, (int) strlen(buff), 3000);
+	va_end(arg);
+	return result;
+}
+
+uint32_t receive_uint_32(UART_HandleTypeDef *huart, uint32_t timeout){
+	uint32_t result = 3;
+	HAL_UART_Receive(huart, (uint8_t*)&result, sizeof(uint32_t), timeout);
+	return result;
+}
+
+HAL_StatusTypeDef receive128bit(UART_HandleTypeDef *huart, uint8_t * buff, uint32_t timeout){
+	return HAL_UART_Receive(huart, buff, 16, timeout);
+}
+void sendStartCode(UART_HandleTypeDef *huart){
+	uint8_t code = 0xAE;
+	HAL_UART_Transmit(huart, &code, sizeof(uint8_t), 100);
+}
+
+/**
+ * @note Do not forget unlock memory and erase pages where you want to store data
+ */
+HAL_StatusTypeDef store128bit(uint8_t * buff, uint32_t address){
+	HAL_StatusTypeDef result = HAL_OK;
+	for(int i = 0; i < 16; i+= 4){
+		HAL_StatusTypeDef currResult = HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD,
+				address + i, ((uint32_t*) buff)[i]);
+		if(currResult != HAL_OK){
+			result = currResult;
+		}
+	}
+	return result;
+};
+/**
+ * @note Do not forget unlock memory before cleaning any data
+ */
+HAL_StatusTypeDef preparePages(uint32_t address, uint32_t len){
+	uint32_t numberOfPages = (len / PAGE_SIZE) + 1;
+	FLASH_EraseInitTypeDef eraseConfig = { FLASH_TYPEERASE_PAGES, address, numberOfPages};
+	uint32_t PageError;
+	return HAL_FLASHEx_Erase(&eraseConfig, &PageError);
 }
 /* USER CODE END 0 */
 
 /**
  * @brief  The application entry point.
  * @retval int
+ */
+
+/**
+ * Now we are going to send data by UART and write the program on the flash
+ * First we send 0xABCDEF byte by UART to say our desktop application that we want to receive data
+ * Second we receive int32_t variable (4 bytes) to find out how many program store next step is to write it on flash
+ * After success receive we
+
  */
 int main(void) {
 	/* USER CODE BEGIN 1 */
@@ -128,49 +179,70 @@ int main(void) {
 	MX_GPIO_Init();
 	MX_USART1_UART_Init();
 	/* USER CODE BEGIN 2 */
+	uint32_t timeout = 3000;
+	sendStartCode(&huart1);
 
+	uint32_t len = receive_uint_32(&huart1, timeout);
+	if (len % 16 != 0) {
+		HAL_eprintf("Length of the file must be divisible by 16\n");
+		return 2;
+	}
+
+	uint32_t dataCode = receive_uint_32(&huart1, timeout);
+	if (dataCode == PROGRAM) {
+		uint32_t address = 0x80020000;
+		HAL_FLASH_Unlock();
+		HAL_StatusTypeDef result = preparePages(address, len);
+		if (result != HAL_OK) {
+			HAL_eprintf(
+					"An error occurred while erasing pages started with the address\n",
+					address);
+			return 2;
+		}
+		if (result == HAL_OK) {
+			HAL_printf("Pages was erased successfully");
+		}
+
+		for (int32_t i = 0; i < len; i += 16, address += 16) {
+			uint8_t buff[16];
+			HAL_StatusTypeDef result = receive128bit(&huart1, buff, timeout);
+			if (result != HAL_OK) {
+				HAL_eprintf(
+						"An error occurred while transferring data: %d block\n",
+						i / 16);
+				return 2;
+			}
+			if (result == HAL_OK) {
+				HAL_printf("%d block was received\n", i / 16);
+			}
+
+			HAL_StatusTypeDef writeResult = store128bit(buff, address);
+			if (writeResult != HAL_OK) {
+				HAL_eprintf(
+						"An error occurred while writing data: %d block in 0x%x address\n",
+						i / 16, address);
+				return 2;
+			}
+			if (writeResult == HAL_OK) {
+				HAL_printf("%d block was received and stored at 0x%x address\n", i / 16, address);
+			}
+		}
+		HAL_FLASH_Lock();
+	}
+
+	HAL_printf("#####\n#####\n All data was received and successfully stored \n#####\n#####\n");
 	/* USER CODE END 2 */
 
 	/* Infinite loop */
 	/* USER CODE BEGIN WHILE */
-	HAL_printf("Hello: %s, you so fucking %d/10", "Borya", 10);
-	HAL_FLASH_Unlock();
-	uint32_t startAddress = 0x08020000;
 
-	FLASH_EraseInitTypeDef eraseConfig = { FLASH_TYPEERASE_PAGES, startAddress + 8,
-			1 };
-	uint32_t PageError;
-	HAL_FLASHEx_Erase(&eraseConfig, &PageError);
 	while (1) {
-
 		/* USER CODE END WHILE */
 
 		/* USER CODE BEGIN 3 */
-
-		int32_t word[] = { 0xBFBFBFBF, 0xABCABCFF };
-
-		for (int i = 0; i >= 0; i += 4) {
-			uint64_t zero = 0;
-//		    HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD, startAddress + i, zero);
-			HAL_StatusTypeDef result = HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD,
-					startAddress + i, word[i % 2]);
-			if (result == HAL_OK) {
-				HAL_printf("The byte was successfully written word 0x%lX",
-						startAddress + i);
-			}
-
-			if (result == HAL_ERROR) {
-				HAL_printf(
-						"Occurred an error while was writing the current word 0x%lX",
-						startAddress + i);
-				printf("mew :(");
-			}
-			HAL_Delay(3);
-		}
-
-		/* USER CODE END 3 */
 	}
-	HAL_FLASH_Lock();
+
+	/* USER CODE END 3 */
 }
 
 /**
