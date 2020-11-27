@@ -5,10 +5,10 @@ from serial import *
 
 serial_port = Serial(port="COM7", baudrate=9600,
                      bytesize=8, timeout=None, stopbits=STOPBITS_ONE)
-
+import sys
 
 # This program going to send data by following format SDF (size defined format):
-# 0 - 3 byte - integer which indicates number of bytes we want to send/receive after these 4 bytes
+# 0 - 3 byte - integer which indicates len of data we want to transmit
 # 4 - 7 byte - code of transmited data
 # 8 - ... byte - data we want to send / receive
 
@@ -83,6 +83,8 @@ def decode_data(data_type: int, data: bytes):
 # print(f'List we want to send:\n{[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]}')
 # print(f'The binary data going to be send:\n {data_to_send}\n\n\n')
 serial_port.flushInput()
+
+
 while 1:
 
     num = serial_port.in_waiting

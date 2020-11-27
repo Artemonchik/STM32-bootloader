@@ -74,8 +74,8 @@ static void MX_USART1_UART_Init(void);
 /**
  * integer length value of data you want to send in special format
  */
-HAL_StatusTypeDef sendData(UART_HandleTypeDef *huart, int32_t messageCode, uint8_t *data,
-		uint32_t len, uint32_t timeout) {
+HAL_StatusTypeDef sendData(UART_HandleTypeDef *huart, int32_t messageCode,
+		uint8_t *data, uint32_t len, uint32_t timeout) {
 	HAL_UART_Transmit(huart, (uint8_t*) (&len), sizeof(len), timeout);
 	HAL_UART_Transmit(huart, (uint8_t*) (&messageCode), sizeof(messageCode),
 			timeout);
@@ -89,7 +89,8 @@ HAL_StatusTypeDef HAL_printf(const char *format, ...) {
 	va_list arg;
 	va_start(arg, format);
 	vsprintf(buff, format, arg);
-	HAL_StatusTypeDef result = sendData(&huart1, STR, (uint8_t*) buff, (int32_t) strlen(buff), 3000);
+	HAL_StatusTypeDef result = sendData(&huart1, STR, (uint8_t*) buff,
+			(int32_t) strlen(buff), 3000);
 	va_end(arg);
 	return result;
 }
@@ -98,21 +99,26 @@ HAL_StatusTypeDef HAL_eprintf(const char *format, ...) {
 	va_list arg;
 	va_start(arg, format);
 	vsprintf(buff, format, arg);
-	HAL_StatusTypeDef result = sendData(&huart1, ERRORSTR, (uint8_t*) buff, (int) strlen(buff), 3000);
+	HAL_StatusTypeDef result = sendData(&huart1, ERRORSTR, (uint8_t*) buff,
+			(int) strlen(buff), 3000);
 	va_end(arg);
 	return result;
 }
 
-uint32_t receive_uint_32(UART_HandleTypeDef *huart, uint32_t timeout){
-	uint32_t result = 3;
-	HAL_UART_Receive(huart, (uint8_t*)&result, sizeof(uint32_t), timeout);
+/**
+ * @return uint_32 from UART or -1 if occurred and error
+ */
+int32_t receive_uint_32(UART_HandleTypeDef *huart, uint32_t timeout) {
+	int32_t result = 3;
+	HAL_UART_Receive(huart, (uint8_t*) (&result), sizeof(int32_t) , timeout);
 	return result;
 }
 
-HAL_StatusTypeDef receive128bit(UART_HandleTypeDef *huart, uint8_t * buff, uint32_t timeout){
-	return HAL_UART_Receive(huart, buff, 16, timeout);
+HAL_StatusTypeDef receive128bit(UART_HandleTypeDef *huart, uint8_t * buff,
+		uint32_t timeout) {
+	return HAL_UART_Receive(huart, buff, (uint16_t)16, timeout);
 }
-void sendStartCode(UART_HandleTypeDef *huart){
+void sendStartCode(UART_HandleTypeDef *huart) {
 	uint8_t code = 0xAE;
 	HAL_UART_Transmit(huart, &code, sizeof(uint8_t), 100);
 }
@@ -120,23 +126,35 @@ void sendStartCode(UART_HandleTypeDef *huart){
 /**
  * @note Do not forget unlock memory and erase pages where you want to store data
  */
-HAL_StatusTypeDef store128bit(uint8_t * buff, uint32_t address){
+HAL_StatusTypeDef store128bit(uint8_t *buff, uint32_t address) {
 	HAL_StatusTypeDef result = HAL_OK;
-	for(int i = 0; i < 16; i+= 4){
+	for (int i = 0; i < 16; i += 4) {
 		HAL_StatusTypeDef currResult = HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD,
-				address + i, ((uint32_t*) buff)[i]);
-		if(currResult != HAL_OK){
+				address + i, (uint64_t)(((uint32_t*) buff)[i/4]));
+
+		if (currResult != HAL_OK) {
 			result = currResult;
 		}
 	}
 	return result;
-};
+}
+
+
+/**
+ * @param address contains address where we store the main program
+ */
+void startMainProgram(uint32_t address) {
+	NULL;
+}
+;
+
 /**
  * @note Do not forget unlock memory before cleaning any data
  */
-HAL_StatusTypeDef preparePages(uint32_t address, uint32_t len){
+HAL_StatusTypeDef preparePages(uint32_t address, uint32_t len) {
 	uint32_t numberOfPages = (len / PAGE_SIZE) + 1;
-	FLASH_EraseInitTypeDef eraseConfig = { FLASH_TYPEERASE_PAGES, address, numberOfPages};
+	FLASH_EraseInitTypeDef eraseConfig = { FLASH_TYPEERASE_PAGES, address,
+			numberOfPages };
 	uint32_t PageError;
 	return HAL_FLASHEx_Erase(&eraseConfig, &PageError);
 }
@@ -178,24 +196,32 @@ int main(void) {
 	/* Initialize all configured peripherals */
 	MX_GPIO_Init();
 	MX_USART1_UART_Init();
+
 	/* USER CODE BEGIN 2 */
+
+	uint32_t address = 0x80020000;
 	uint32_t timeout = 3000;
 	sendStartCode(&huart1);
-
-	uint32_t len = receive_uint_32(&huart1, timeout);
+	int32_t len = receive_uint_32(&huart1, timeout);
+	HAL_printf("%d - bytes going to be received", len);
+	int32_t dataCode = receive_uint_32(&huart1, timeout);
+	HAL_printf("%u - data code was received", dataCode);
+	if (len == -1) {
+		startMainProgram(address);
+		HAL_printf("No data was received, starts the main program");
+	}
 	if (len % 16 != 0) {
-		HAL_eprintf("Length of the file must be divisible by 16\n");
+		HAL_eprintf("Length of the file must be divisible by 16");
 		return 2;
 	}
 
-	uint32_t dataCode = receive_uint_32(&huart1, timeout);
 	if (dataCode == PROGRAM) {
-		uint32_t address = 0x80020000;
+		HAL_printf("Program is pending");
 		HAL_FLASH_Unlock();
 		HAL_StatusTypeDef result = preparePages(address, len);
 		if (result != HAL_OK) {
 			HAL_eprintf(
-					"An error occurred while erasing pages started with the address\n",
+					"An error occurred while erasing pages started with the address",
 					address);
 			return 2;
 		}
@@ -205,32 +231,33 @@ int main(void) {
 
 		for (int32_t i = 0; i < len; i += 16, address += 16) {
 			uint8_t buff[16];
-			HAL_StatusTypeDef result = receive128bit(&huart1, buff, timeout);
+			HAL_StatusTypeDef result = receive128bit(&huart1, buff, timeout + 400);
 			if (result != HAL_OK) {
 				HAL_eprintf(
-						"An error occurred while transferring data: %d block\n",
+						"An error occurred while transferring data: %d block",
 						i / 16);
 				return 2;
 			}
 			if (result == HAL_OK) {
-				HAL_printf("%d block was received\n", i / 16);
+				HAL_printf("%d block was received", i / 16);
 			}
 
 			HAL_StatusTypeDef writeResult = store128bit(buff, address);
-			if (writeResult != HAL_OK) {
-				HAL_eprintf(
+			if (writeResult == HAL_OK) {
+				HAL_printf("%d block was received and stored at 0x%x address\n",
+						i / 16, address);
+			}else {
+				HAL_printf(
 						"An error occurred while writing data: %d block in 0x%x address\n",
 						i / 16, address);
-				return 2;
 			}
-			if (writeResult == HAL_OK) {
-				HAL_printf("%d block was received and stored at 0x%x address\n", i / 16, address);
-			}
+
 		}
 		HAL_FLASH_Lock();
 	}
 
-	HAL_printf("#####\n#####\n All data was received and successfully stored \n#####\n#####\n");
+	HAL_printf(
+			"#####\n#####\n All data was received and successfully stored \n#####\n#####\n");
 	/* USER CODE END 2 */
 
 	/* Infinite loop */
