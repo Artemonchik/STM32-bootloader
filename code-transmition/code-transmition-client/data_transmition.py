@@ -7,6 +7,7 @@
 # 1 - string message
 # 2 - error message
 # 3 - binary code
+from time import sleep
 
 
 def send_data(serial_port, data: bytes, transmission_code=1, timeout=10000):
@@ -25,8 +26,8 @@ def send_data(serial_port, data: bytes, transmission_code=1, timeout=10000):
     curr_timeout = serial_port.write_timeout
     serial_port.write_timeout = timeout
 
-    serial_port.write(length.to_bytes(4, 'little'))
-    serial_port.write(transmission_code.to_bytes(4, 'little'))
+    # serial_port.write(length.to_bytes(4, 'little'))
+    # serial_port.write(transmission_code.to_bytes(4, 'little'))
     serial_port.write(data)
 
     serial_port.write_timeout = curr_timeout
@@ -71,3 +72,10 @@ def receive_data(serial_port, timeout=1000):
 def decode_data(data, transmission_code=1):
     if transmission_code in [1, 2]:
         return data.decode("koi8-r")
+
+
+def wait_for_data(serial_port):
+    while 1:
+        sleep(0.001)
+        if serial_port.in_waiting > 0:
+            return

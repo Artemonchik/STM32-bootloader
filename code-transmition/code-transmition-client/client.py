@@ -5,25 +5,7 @@ from data_transmition import *
 import sys
 import threading
 
-
-def run_receiving_messages_tread():
-    '''
-    Runs a thread that will read messages from serial port and then print them
-    '''
-
-    def receive_messages():
-        while 1:
-            sleep(0.1)
-            if serial_port.in_waiting > 0:
-                length, message_code, data = receive_data(serial_port)
-                string_message = decode_data(data, message_code)
-                print(f"\033[94m{string_message}\033[0m")
-
-    thread = threading.Thread(target=receive_messages)
-    thread.start()
-
-
-serial_port = serial.Serial(port="COM6", baudrate=9600,
+serial_port = serial.Serial(port="COM6", baudrate=115200,
                             bytesize=8, timeout=None, stopbits=serial.STOPBITS_ONE)
 
 # The transmission between us and STM-32 start with sending by STM32 0xAB that means it wants to receive data
@@ -42,7 +24,7 @@ print(code)
 # waiting for communication
 print("Waiting for the start code")
 while 1:
-    sleep(0.1)
+    sleep(0.01)
     num = serial_port.in_waiting
     if num > 0:
         byte = serial_port.read(1)
@@ -55,7 +37,16 @@ while 1:
             exit(666)
 
 print(f"This code has {len(code) // 16} blocks")
-
-# Sending data
-run_receiving_messages_tread()
-send_data(serial_port, code, 3)
+send_data_header(serial_port, code, 3)
+i = 0
+while 1:
+    wait_for_data(serial_port)
+    l, t, d = receive_data(serial_port)  # len, type, data
+    if t == 4:
+        send_data(serial_port, code[i: i + 16], 3)
+        i += 16
+        if i > len(code):
+            break
+    else:
+        decoded_data = decode_data(d, t)
+        print(decoded_data)
