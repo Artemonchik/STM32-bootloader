@@ -21,6 +21,9 @@
 #define PROGRAM 3
 #define REQUEST 4
 #define PAGE_SIZE 2048
+#define CBC 1
+#define AES256 1
+#define BUF_SIZE 16
 //#define HAL_FLASH_MODULE_ENABLED
 //#define FLASH_BASE            0x08000000UL /*!< FLASH base address in the alias region */
 //#define CCMDATARAM_BASE       0x10000000UL /*!< CCM(core coupled memory) data RAM base address in the alias region     */
@@ -35,6 +38,7 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "stdio.h"
+#include "aes.h"
 //#include "stm32f3xx_hal_flash.h"
 //#include "stm32f3xx_hal_flash_ex.h"
 #include "stdarg.h"
@@ -115,9 +119,9 @@ int32_t receive_uint_32(UART_HandleTypeDef *huart, uint32_t timeout) {
 	return result;
 }
 
-HAL_StatusTypeDef receive128bit(UART_HandleTypeDef *huart, uint8_t *buff,
+HAL_StatusTypeDef receive256bit(UART_HandleTypeDef *huart, uint8_t *buff,
 		uint32_t timeout) {
-	return HAL_UART_Receive(huart, buff, (uint16_t) 16, timeout);
+	return HAL_UART_Receive(huart, buff, (uint16_t) BUF_SIZE, timeout);
 }
 void sendStartCode(UART_HandleTypeDef *huart) {
 	uint8_t code = 0xAE;
@@ -127,9 +131,9 @@ void sendStartCode(UART_HandleTypeDef *huart) {
 /**
  * @note Do not forget unlock memory and erase pages where you want to store data
  */
-HAL_StatusTypeDef store128bit(uint8_t *buff, uint32_t address) {
+HAL_StatusTypeDef store256bit(uint8_t *buff, uint32_t address) {
 	HAL_StatusTypeDef result = HAL_OK;
-	for (int i = 0; i < 16; i += 4) {
+	for (int i = 0; i < BUF_SIZE; i += 4) {
 		HAL_StatusTypeDef currResult = HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD,
 				address + i, ((uint32_t*) buff)[i / 4]);
 		if (currResult != HAL_OK) {
@@ -182,6 +186,12 @@ void askForNext128bit(UART_HandleTypeDef *huart) {
 	uint8_t buff[1];
 	sendData(huart, REQUEST, buff, 0, 1000);
 }
+uint8_t key[33] = "11111111111111111111111111111111";
+struct AES_ctx ctx;
+
+void decrypt(uint8_t * buff, size_t length){
+	AES_CBC_decrypt_buffer(&ctx, buff, length);
+}
 /* USER CODE END 0 */
 
 /**
@@ -191,7 +201,7 @@ void askForNext128bit(UART_HandleTypeDef *huart) {
 int main(void)
 {
   /* USER CODE BEGIN 1 */
-
+	AES_init_ctx_iv(&ctx, key, key);
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -226,8 +236,8 @@ int main(void)
 		bootloader_jump_to_user_app(address);
 		HAL_printf("No data was received, starts the main program");
 	}
-	if (len % 16 != 0) {
-		HAL_eprintf("Length of the file must be divisible by 16");
+	if (len % BUF_SIZE != 0) {
+		HAL_eprintf("Length of the file must be divisible by BUF_SIZE");
 		return 2;
 	}
 
@@ -249,29 +259,31 @@ int main(void)
 			HAL_printf("Pages was erased successfully");
 		}
 
-		for (int32_t i = 0; i < len; i += 16, address += 16) {
-			uint8_t buff[16];
+		for (int32_t i = 0; i < len; i += BUF_SIZE, address += BUF_SIZE) {
+			uint8_t buff[BUF_SIZE];
 			askForNext128bit(&huart1);
-			HAL_StatusTypeDef result = receive128bit(&huart1, buff,
+			HAL_StatusTypeDef result = receive256bit(&huart1, buff,
 					timeout + 400);
+			decrypt(buff, BUF_SIZE);
 			if (result != HAL_OK) {
 				HAL_eprintf(
 						"An error occurred while transferring data: %d block",
-						i / 16);
+						i / BUF_SIZE);
 				return 2;
 			}
 			if (result == HAL_OK) {
-				HAL_printf("%d block was received", i / 16);
+				HAL_printf("%d block was received", i / BUF_SIZE);
+				HAL_printf("message is: %s", buff);
 			}
 
-			HAL_StatusTypeDef writeResult = store128bit(buff, address);
+			HAL_StatusTypeDef writeResult = store256bit(buff, address);
 			if (writeResult == HAL_OK) {
 				HAL_printf("%d block was received and stored at 0x%x address",
-						i / 16, address);
+						i / BUF_SIZE, address);
 			} else {
 				HAL_printf(
 						"An error occurred while writing data: %d block in 0x%x address",
-						i / 16, address);
+						i / BUF_SIZE, address);
 			}
 
 		}
