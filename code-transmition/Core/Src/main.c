@@ -23,7 +23,7 @@
 #define PAGE_SIZE 2048
 #define CBC 1
 #define AES256 1
-#define BUF_SIZE 16
+#define BUF_SIZE (16*16)
 //#define HAL_FLASH_MODULE_ENABLED
 //#define FLASH_BASE            0x08000000UL /*!< FLASH base address in the alias region */
 //#define CCMDATARAM_BASE       0x10000000UL /*!< CCM(core coupled memory) data RAM base address in the alias region     */
@@ -79,12 +79,13 @@ static void MX_USART1_UART_Init(void);
 /**
  * integer length value of data you want to send in special format
  */
-HAL_StatusTypeDef sendData(UART_HandleTypeDef *huart, int32_t messageCode,
+HAL_StatusTypeDef sendData(UART_HandleTypeDef *huart, uint32_t messageCode,
 		uint8_t *data, uint32_t len, uint32_t timeout) {
-	HAL_UART_Transmit(huart, (uint8_t*) (&len), sizeof(len), timeout);
-	HAL_UART_Transmit(huart, (uint8_t*) (&messageCode), sizeof(messageCode),
-			timeout);
-	return HAL_UART_Transmit(huart, data, len, timeout);
+	HAL_UART_Transmit(huart, (uint8_t*) (&messageCode), sizeof(messageCode), timeout);
+	HAL_StatusTypeDef result = HAL_UART_Transmit(huart, (uint8_t*) (&len), sizeof(len), timeout);
+	if(len != 0 && data != NULL)
+		result = HAL_UART_Transmit(huart, data, len, timeout);
+	return result;
 }
 
 /**
@@ -119,19 +120,19 @@ int32_t receive_uint_32(UART_HandleTypeDef *huart, uint32_t timeout) {
 	return result;
 }
 
-HAL_StatusTypeDef receive256bit(UART_HandleTypeDef *huart, uint8_t *buff,
+HAL_StatusTypeDef receiveBlock(UART_HandleTypeDef *huart, uint8_t *buff,
 		uint32_t timeout) {
 	return HAL_UART_Receive(huart, buff, (uint16_t) BUF_SIZE, timeout);
 }
-void sendStartCode(UART_HandleTypeDef *huart) {
-	uint8_t code = 0xAE;
-	HAL_UART_Transmit(huart, &code, sizeof(uint8_t), 100);
+void startSession(UART_HandleTypeDef *huart) {
+	uint32_t code = 0xAE;
+	sendData(huart, code, NULL, 0, 100);
 }
 
 /**
  * @note Do not forget unlock memory and erase pages where you want to store data
  */
-HAL_StatusTypeDef store256bit(uint8_t *buff, uint32_t address) {
+HAL_StatusTypeDef storeBlock(uint8_t *buff, uint32_t address) {
 	HAL_StatusTypeDef result = HAL_OK;
 	for (int i = 0; i < BUF_SIZE; i += 4) {
 		HAL_StatusTypeDef currResult = HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD,
@@ -167,7 +168,7 @@ void bootloader_jump_to_user_app(uint32_t address) {
 	jumpAddress = *(__IO uint32_t*) (address + 4);
 
 	JumpToApplication = (pFunction) jumpAddress;
-
+// TODO: Make correct vector table init
 	JumpToApplication();
 }
 
@@ -182,9 +183,8 @@ HAL_StatusTypeDef preparePages(uint32_t address, uint32_t len) {
 	return HAL_FLASHEx_Erase(&eraseConfig, &PageError);
 }
 
-void askForNext128bit(UART_HandleTypeDef *huart) {
-	uint8_t buff[1];
-	sendData(huart, REQUEST, buff, 0, 1000);
+void askForNextBlock(UART_HandleTypeDef *huart, uint32_t block_num) {
+	sendData(huart, REQUEST, (uint8_t*)&block_num, sizeof(block_num), 1000);
 }
 uint8_t key[33] = "11111111111111111111111111111111";
 struct AES_ctx ctx;
@@ -227,9 +227,9 @@ int main(void)
 
 	uint32_t address = 0x08020000;
 	uint32_t timeout = 500;
-	sendStartCode(&huart1);
-	int32_t len = receive_uint_32(&huart1, timeout);
+	startSession(&huart1);
 	int32_t dataCode = receive_uint_32(&huart1, timeout);
+	int32_t len = receive_uint_32(&huart1, timeout);
 	HAL_printf("%d - bytes going to be received", len);
 	HAL_printf("%u - data code was received", dataCode);
 	if (len == -1) {
@@ -261,8 +261,8 @@ int main(void)
 
 		for (int32_t i = 0; i < len; i += BUF_SIZE, address += BUF_SIZE) {
 			uint8_t buff[BUF_SIZE];
-			askForNext128bit(&huart1);
-			HAL_StatusTypeDef result = receive256bit(&huart1, buff,
+			askForNextBlock(&huart1, i);
+			HAL_StatusTypeDef result = receiveBlock(&huart1, buff,
 					timeout + 400);
 			decrypt(buff, BUF_SIZE);
 			if (result != HAL_OK) {
@@ -273,10 +273,9 @@ int main(void)
 			}
 			if (result == HAL_OK) {
 				HAL_printf("%d block was received", i / BUF_SIZE);
-				HAL_printf("message is: %s", buff);
 			}
 
-			HAL_StatusTypeDef writeResult = store256bit(buff, address);
+			HAL_StatusTypeDef writeResult = storeBlock(buff, address);
 			if (writeResult == HAL_OK) {
 				HAL_printf("%d block was received and stored at 0x%x address",
 						i / BUF_SIZE, address);
