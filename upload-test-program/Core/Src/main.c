@@ -80,7 +80,6 @@ void togglePins(){
   */
 int main(void)
 {
-
   /* USER CODE BEGIN 1 */
 	SCB->VTOR = 0x08020000;
   /* USER CODE END 1 */

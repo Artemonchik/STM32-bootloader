@@ -24,6 +24,7 @@
 #define CBC 1
 #define AES256 1
 #define BUF_SIZE (16*16)
+#define RECEIVE_TRIES 5
 //#define HAL_FLASH_MODULE_ENABLED
 //#define FLASH_BASE            0x08000000UL /*!< FLASH base address in the alias region */
 //#define CCMDATARAM_BASE       0x10000000UL /*!< CCM(core coupled memory) data RAM base address in the alias region     */
@@ -79,8 +80,25 @@ static void MX_USART1_UART_Init(void);
 /**
  * integer length value of data you want to send in special format
  */
+
+int need_to_change_baud = 0;
+void check_baud(){
+	if(need_to_change_baud){
+		need_to_change_baud = 0;
+		HAL_UART_DeInit(&huart1);
+		if(huart1.Init.BaudRate == 3)
+			return;
+		huart1.Init.BaudRate = 2400;
+		if (HAL_UART_Init(&huart1) != HAL_OK)
+		{
+		   Error_Handler();
+		}
+		HAL_Delay(100);
+	}
+}
 HAL_StatusTypeDef sendData(UART_HandleTypeDef *huart, uint32_t messageCode,
 		uint8_t *data, uint32_t len, uint32_t timeout) {
+	check_baud();
 	HAL_UART_Transmit(huart, (uint8_t*) (&messageCode), sizeof(messageCode), timeout);
 	HAL_StatusTypeDef result = HAL_UART_Transmit(huart, (uint8_t*) (&len), sizeof(len), timeout);
 	if(len != 0 && data != NULL)
@@ -115,14 +133,16 @@ HAL_StatusTypeDef HAL_eprintf(const char *format, ...) {
  * @return uint_32 from UART or -1 if occurred and error
  */
 int32_t receive_uint_32(UART_HandleTypeDef *huart, uint32_t timeout) {
+	check_baud();
 	int32_t result = -1;
 	HAL_UART_Receive(huart, (uint8_t*) (&result), sizeof(int32_t), timeout);
 	return result;
 }
 
 HAL_StatusTypeDef receiveBlock(UART_HandleTypeDef *huart, uint8_t *buff,
-		uint32_t timeout) {
-	return HAL_UART_Receive(huart, buff, (uint16_t) BUF_SIZE, timeout);
+		uint32_t timeout, uint16_t buff_size) {
+	check_baud();
+	return HAL_UART_Receive(huart, buff,  buff_size, timeout);
 }
 void startSession(UART_HandleTypeDef *huart) {
 	uint32_t code = 0xAE;
@@ -192,6 +212,22 @@ struct AES_ctx ctx;
 void decrypt(uint8_t * buff, size_t length){
 	AES_CBC_decrypt_buffer(&ctx, buff, length);
 }
+
+uint32_t crc32(const char *s,size_t n) {
+	uint32_t crc=0xFFFFFFFF;
+
+	for(size_t i=0;i<n;i++) {
+		char ch=s[i];
+		for(size_t j=0;j<8;j++) {
+			uint32_t b=(ch^crc)&1;
+			crc>>=1;
+			if(b) crc=crc^0xEDB88320;
+			ch>>=1;
+		}
+	}
+
+	return ~crc;
+}
 /* USER CODE END 0 */
 
 /**
@@ -224,7 +260,6 @@ int main(void)
   MX_GPIO_Init();
   MX_USART1_UART_Init();
   /* USER CODE BEGIN 2 */
-
 	uint32_t address = 0x08020000;
 	uint32_t timeout = 500;
 	startSession(&huart1);
@@ -259,11 +294,30 @@ int main(void)
 			HAL_printf("Pages was erased successfully");
 		}
 
+		int unsuccessful_receive_attempts = 0;
 		for (int32_t i = 0; i < len; i += BUF_SIZE, address += BUF_SIZE) {
 			uint8_t buff[BUF_SIZE];
 			askForNextBlock(&huart1, i);
 			HAL_StatusTypeDef result = receiveBlock(&huart1, buff,
-					timeout + 400);
+					timeout + 400, BUF_SIZE);
+			uint32_t crc_received;
+			receiveBlock(&huart1, (uint8_t*)&crc_received, timeout + 400, sizeof(crc_received));
+			HAL_printf("Value crc received = %u", crc_received);
+			uint32_t crc_computed = crc32((char*)buff, BUF_SIZE);
+			HAL_printf("Value crc computed = %u", crc_computed);
+			if(crc_computed != crc_received){
+				unsuccessful_receive_attempts++;
+				if(unsuccessful_receive_attempts == RECEIVE_TRIES){
+					HAL_printf("Decrease baudrate");
+					need_to_change_baud =  1;
+				}
+				HAL_eprintf("do not match, require re-sending");
+				i -= BUF_SIZE;
+				address -= BUF_SIZE;
+				continue;
+			}else{
+				unsuccessful_receive_attempts = 0;
+			}
 			decrypt(buff, BUF_SIZE);
 			if (result != HAL_OK) {
 				HAL_eprintf(

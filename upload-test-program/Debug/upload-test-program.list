@@ -154,7 +154,6 @@ int main(void)
 {
  8020240:	b580      	push	{r7, lr}
  8020242:	af00      	add	r7, sp, #0
-
   /* USER CODE BEGIN 1 */
 	SCB->VTOR = 0x08020000;
  8020244:	4b07      	ldr	r3, [pc, #28]	; (8020264 <main+0x24>)

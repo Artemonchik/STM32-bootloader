@@ -1,6 +1,0 @@
-test.c:185:12:test_encrypt_cbc	368	static
-test.c:140:12:test_decrypt_cbc	368	static
-test.c:239:12:test_xcrypt_ctr	376	static
-test.c:49:13:phex	16	static
-test.c:66:13:test_encrypt_ecb_verbose	288	static
-test.c:24:5:main	280	static

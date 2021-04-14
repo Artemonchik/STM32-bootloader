@@ -87,3 +87,4 @@ class Transmition:
     ERROR_MESSAGE = 2
     BINARY_CODE = 3
     REQUEST_BLOCK = 4
+    
