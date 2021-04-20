@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Linq;
 using System.Text;
 
 namespace BootloaderFileFormat
@@ -46,8 +47,7 @@ namespace BootloaderFileFormat
         {
             var fileStream = new FileStream(filepath, FileMode.Open, FileAccess.Read, FileShare.Read);
             var binaryReader = new BinaryReader(fileStream, Encoding.ASCII);
-            
-            if (binaryReader.ReadBytes(10) != HeaderBytes)
+            if (!binaryReader.ReadBytes(6).SequenceEqual(HeaderBytes))
             {
                 throw new FormatException();
             }
@@ -63,7 +63,7 @@ namespace BootloaderFileFormat
             
             _unixCreationTime = binaryReader.ReadInt64();
 
-            if (binaryReader.ReadBytes(4) != DataBytes)
+            if (!binaryReader.ReadBytes(4).SequenceEqual(DataBytes))
             {
                 throw new FormatException();
             }
@@ -96,6 +96,16 @@ namespace BootloaderFileFormat
             var stringBuilder = new StringBuilder();
             stringBuilder.Append("Manufacturer: ");
             stringBuilder.AppendLine(ManufacturerName);
+            stringBuilder.Append("Version: ");
+            for (var i = 0; i < 4; i++)
+            {
+                stringBuilder.Append(FirmwareVersion[i]);
+                if (i < 3)
+                {
+                    stringBuilder.Append('.');
+                }
+            }
+            stringBuilder.AppendLine();
             stringBuilder.Append("Creation time: ");
             stringBuilder.AppendLine(DateTimeOffset.FromUnixTimeSeconds(_unixCreationTime).ToString());
             stringBuilder.Append("Firmware size: ");
