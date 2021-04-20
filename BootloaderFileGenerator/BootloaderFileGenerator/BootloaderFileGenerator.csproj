@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <OutputType>Exe</OutputType>
+        <TargetFramework>net5.0</TargetFramework>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <Reference Include="BootloaderFileFormat, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null">
+        <HintPath>..\..\BootloaderFileFormat\BootloaderFileFormat\bin\Release\net5.0\BootloaderFileFormat.dll</HintPath>
+      </Reference>
+    </ItemGroup>
+
+   
+
+</Project>
