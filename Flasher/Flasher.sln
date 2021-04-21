@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.29920.165
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Flasher", "Flasher\Flasher.csproj", "{F1FEFE17-8A12-4543-A404-148262A3AFC0}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{F1FEFE17-8A12-4543-A404-148262A3AFC0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F1FEFE17-8A12-4543-A404-148262A3AFC0}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F1FEFE17-8A12-4543-A404-148262A3AFC0}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F1FEFE17-8A12-4543-A404-148262A3AFC0}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {65334B0A-6E9C-4A80-A1C6-20B502669FE7}
+	EndGlobalSection
+EndGlobal
