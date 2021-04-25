@@ -32,7 +32,7 @@ namespace Flasher
         }
 
         //Open file and store it path...
-        private void button2_Click(object sender, EventArgs e)
+        private void Button2_Click(object sender, EventArgs e)
         {
             OpenFileDialog ofd = new OpenFileDialog();
             if (ofd.ShowDialog() == DialogResult.OK)
@@ -43,7 +43,7 @@ namespace Flasher
         }
 
         //Select COM -> Upload button enabled
-        private void comboBox1_SelectedIndexChanged(object sender, EventArgs e)
+        private void ComboBox1_SelectedIndexChanged(object sender, EventArgs e)
         {
             if (comboBox1.SelectedIndex == -1)
             {
@@ -56,14 +56,14 @@ namespace Flasher
             }
         }
 
-        private async void button1_Click(object sender, EventArgs e)
+        private async void Button1_Click(object sender, EventArgs e)
         {
             button1.Enabled = false;
             try
             {
                 var bin = await ReadFile(file_name);
                 /* try to upload */
-                Client.main(port_name, baudrate, Constants.DataBits, StopBits.One, bin);
+                Client.Main(port_name, baudrate, Constants.DataBits, StopBits.One, bin);
             }
             catch (Exception ex)
             {
@@ -75,7 +75,7 @@ namespace Flasher
                 button1.Enabled = true;
             }
         }
-        private void comboBox2_SelectedIndexChanged(object sender, EventArgs e)
+        private void ComboBox2_SelectedIndexChanged(object sender, EventArgs e)
         {
             baudrate = int.Parse((string)comboBox2.SelectedItem);
         }
@@ -106,6 +106,11 @@ namespace Flasher
                 /* ^^ ding! */
                 SystemSounds.Exclamation.Play();
             }
+        }
+
+        private void ProgressBar1_Click(object sender, EventArgs e)
+        {
+            //TODO
         }
     }
 }

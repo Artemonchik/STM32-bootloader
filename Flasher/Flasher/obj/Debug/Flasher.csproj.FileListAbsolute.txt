@@ -7,4 +7,4 @@ C:\Users\KazukiNagasa\source\repos\Flasher\Flasher\obj\Debug\Flasher.csproj.Gene
 C:\Users\KazukiNagasa\source\repos\Flasher\Flasher\obj\Debug\Flasher.csproj.CoreCompileInputs.cache
 C:\Users\KazukiNagasa\source\repos\Flasher\Flasher\obj\Debug\Flasher.exe
 C:\Users\KazukiNagasa\source\repos\Flasher\Flasher\obj\Debug\Flasher.pdb
-C:\Users\KazukiNagasa\source\repos\Flasher\Flasher\obj\Debug\Flasher.Constants.resources
+C:\Users\KazukiNagasa\source\repos\Flasher\Flasher\obj\Debug\Flasher.Form1.resources

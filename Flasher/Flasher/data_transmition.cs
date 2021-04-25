@@ -1,22 +1,18 @@
 ﻿using System;
 using System.IO;
 using System.IO.Ports;
+using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
 
 namespace Flasher
 {
-    /*
-        This module going to send data by following format SDF (size defined format):
-        0 - 3 byte - integer which indicates len of data we want to transmit
-        4 - 7 byte - code of transmited data
-        8 - ... byte - data we want to send / receive
-
-    # CODE TABLE #
-        1 - string message
-        2 - error message
-        3 - binary code
-    */
+    /// <summary>
+    /// This module going to send data by following format SDF (size defined format):
+    /// 0 - 3 byte - integer which indicates len of data we want to transmit
+    /// 4 - 7 byte - code of transmited data
+    /// 8 - ... byte - data we want to send / receive
+    /// </summary>
     struct Data_s
     {
         public int length;
@@ -29,148 +25,113 @@ namespace Flasher
             this.data = data;
         }
     }
-    class data_transmition
+    class Data_transmition
     {
-        /*
-         * Send len of data, data code and data to serial_port with max wait of timeout milliseconds
-         * :param serial_port: port to send
-         * :param data: data
-         * :param timeout: max time to send data
-         * :param: code from code Table
-         * :return: no
-         * :except: SerialTimeoutException – in a case a {timeout} time is exceeded
-         */
-        public static void Send_data(SerialPort _serialPort, byte[] data, int timeout = 10000)
+        /// <summary>
+        /// Send len of data, data code and data to serial_port 
+        /// with max wait of timeout milliseconds.
+        /// </summary>
+        /// <param name="_serialPort">- SerialPort to send</param>
+        /// <param name="data"> - sending data. </param>
+        /// <param name="block_size"></param>
+        /// <param name="current_bytes"></param>
+        /// <param name="timeout">- max time to send data(default = 1000).</param>
+        public static void Send_data(SerialPort _serialPort, byte[] data, int block_size, int current_bytes, int timeout = 10000)
         {
+            int curr_timeout = _serialPort.WriteTimeout;
+            _serialPort.WriteTimeout = timeout;
 
-            int length = data.Length;
-            int curr_timeout = 0;
-
-            try 
-            {
-                curr_timeout = _serialPort.WriteTimeout;
-                _serialPort.WriteTimeout = timeout;
-                _serialPort.Open();
-            }
-            catch (UnauthorizedAccessException Ex) 
-            {
-                Console.WriteLine(Ex.ToString());
-                Console.WriteLine("Access is denied to the port.");
-                _serialPort.Close();
-            }
-            catch (ArgumentOutOfRangeException Ex) 
-            {
-                Console.WriteLine(Ex.ToString());
-                Console.WriteLine("One of the properties is invalid");
-                _serialPort.Close();
-            }
-            catch (IOException Ex) 
-            {
-                Console.WriteLine(Ex.ToString());
-                Console.WriteLine("The port is in an invalid state");
-                _serialPort.Close();
-            }
-            catch (InvalidOperationException Ex) 
-            {
-                Console.WriteLine(Ex.ToString());
-                Console.WriteLine("SerialPort is already open");
-                _serialPort.Close();
-            }
-
-            _serialPort.Write(data, 0, length);
+            _serialPort.Write(data, current_bytes, sizeof(byte)* block_size);
             _serialPort.WriteTimeout = curr_timeout;
-            _serialPort.Close();
 
 
         }
+
+
+        /// <summary>
+        /// Send data header to Serial.
+        /// </summary>
+        /// <param name="_serialPort"> - serialPort to receive Data.</param>
+        /// <param name="data">- sending Data. </param>
+        /// <param name="transmission_code"> -  (1 - string message, 2 - error message, 3 - binary code, 4 - request_block )</param>
+        /// <param name="timeout">- max time to send data(default = 1000).</param>
         public static void Send_data_header(SerialPort _serialPort, byte[] data, int transmission_code = 1, int timeout = 10000)
         {
             int length = data.Length;
+            byte[] length_b = BitConverter.GetBytes(length);
+            byte [] transmission_code_b =  BitConverter.GetBytes(transmission_code);
 
             int curr_timeout = _serialPort.WriteTimeout;
             _serialPort.WriteTimeout = timeout;
 
-            _serialPort.Write(BitConverter.GetBytes(length), 0, length);
-            _serialPort.Write(BitConverter.GetBytes(transmission_code), 0, length);
+            _serialPort.Write(length_b, 0, sizeof(byte) * 4);
+            _serialPort.Write(transmission_code_b, 0, sizeof(byte)*4);
 
             _serialPort.WriteTimeout = curr_timeout;
 
 
         }
 
-        /**
-         * Receive SDF data from serial
-         * -param serial_port:
-         * -param timeout:
-         * +return: number of bytes received and received data bytes
-         */
-        public static Data_s Receive_data(SerialPort _serialPort, Data_s recieved_data, int timeout = 1000)
-        {
-            byte[] bytes_number_b = null;
-            byte[] data_type_b = null;
-            int curr_timeout = 0;
-            try
-            {
-                curr_timeout = _serialPort.ReadTimeout;
-                _serialPort.ReadTimeout = timeout;
-                _serialPort.Open();
-            }
-            catch (UnauthorizedAccessException Ex)
-            {
-                Console.WriteLine(Ex.ToString());
-                Console.WriteLine("Access is denied to the port.");
-                _serialPort.Close();
-            }
-            catch (ArgumentOutOfRangeException Ex)
-            {
-                Console.WriteLine(Ex.ToString());
-                Console.WriteLine("One of the properties is invalid");
-                _serialPort.Close();
-            }
-            catch (IOException Ex)
-            {
-                Console.WriteLine(Ex.ToString());
-                Console.WriteLine("The port is in an invalid state");
-                _serialPort.Close();
-            }
-            catch (InvalidOperationException Ex)
-            {
-                Console.WriteLine(Ex.ToString());
-                Console.WriteLine("SerialPort is already open");
-                _serialPort.Close();
-            }
 
-            _serialPort.Read(bytes_number_b, 0, 4);
-            if (bytes_number_b.Length < 4) 
+        /**
+         * <summary>Receive SDF data from serial. </summary>
+         * <param name="_serialPort">  - serialPort to receive Data. </param>
+         * <param name="recieved_data">  - structure of receiving Data {length, type, data}. </param>
+         * <param name="timeout"> - timeout(default = 1000). </param>
+         * <returns> number of bytes received and received data bytes. </returns>
+         */
+        public static Data_s Receive_data(SerialPort _serialPort, int timeout = 1000000)
+        {
+            Data_s recieved_data = new Data_s(0, 0, new byte[30000]);
+
+            Array.Clear(recieved_data.data, 0, 30000);
+            byte[] data_len_b = new byte[4];
+            byte[] data_type_b = new byte[4];
+            int curr_timeout = _serialPort.ReadTimeout;
+            _serialPort.ReadTimeout = timeout;
+
+            _serialPort.Read(data_len_b, 0, sizeof(byte) * 4);
+            if (data_len_b.Length < 4) 
             {
                 return recieved_data;
             }
-            recieved_data.length = BitConverter.ToInt32(bytes_number_b, 0);
+            recieved_data.length = BitConverter.ToInt32(data_len_b, 0);
 
-            _serialPort.Read(data_type_b, 0, 4);
-            recieved_data.length = BitConverter.ToInt32(data_type_b, 0);
+            _serialPort.Read(data_type_b, 0, sizeof(byte) * 4);
+            recieved_data.type = BitConverter.ToInt32(data_type_b, 0);
 
-            _serialPort.Read(recieved_data.data, 0, recieved_data.length);
+            _serialPort.Read(recieved_data.data, 0, sizeof(byte) * recieved_data.length);
+
             _serialPort.ReadTimeout = curr_timeout;
 
             return recieved_data;
         }
-        public static byte[] Decode_data(byte[] data, int transmission_code = 1) 
+        /**
+         * <summary> Decoding from bytes to string, if it's string or error message </summary>
+         * <param name="data">  - sending Data. </param>
+         * <param name="transmission_code"> -  (1 - string message, 2 - error message, 3 - binary code )</param>
+         * <returns> Decoded string or null </returns>
+         */
+        public static String Decode_data(Data_s data, int transmission_code = 1) 
         {
             if (transmission_code == 1 || transmission_code == 2)
             {
 
-                return Encoding.Convert(Encoding.ASCII, Encoding.Unicode, data);
+                return Encoding.ASCII.GetString(data.data, 0, sizeof(byte) * data.length);
             }
 
-            return data;
+            return null;
         }
 
+        /**
+         * <summary>Waiting for data to read from serial port </summary>
+         * <param name="_serialPort">  - opened serialPort. </param>
+         * <returns> Nothing. </returns>
+         */
         public static void Wait_for_data(SerialPort _serialPort)
         {
             while (true)
             {
-                Thread.Sleep(1);
                 if (_serialPort.BytesToRead > 0)
                 {
                     return;
