@@ -27,20 +27,21 @@ namespace BootloaderFileFormat
             set
             {
                 _data = value;
-                _size = value.Length;
+                Size = value.Length;
             }
             get => _data;
         }
 
         private short _manufacturerNameSize;
-        private int _size { set; get; }
-        private long _unixCreationTime { set; get; }
+        private int Size { set; get; }
+        private long UnixCreationTime { set; get; }
         public ushort[] FirmwareVersion { set; get; }
+        public byte[] IV { set; get; }
 
         public BootloaderFile()
         {
             FirmwareVersion = new ushort[4];
-            _unixCreationTime = DateTimeOffset.Now.ToUnixTimeSeconds();
+            UnixCreationTime = DateTimeOffset.Now.ToUnixTimeSeconds();
         }
         
         public BootloaderFile(string filepath)
@@ -61,15 +62,17 @@ namespace BootloaderFileFormat
                 FirmwareVersion[i] = binaryReader.ReadUInt16();    
             }
             
-            _unixCreationTime = binaryReader.ReadInt64();
+            UnixCreationTime = binaryReader.ReadInt64();
 
             if (!binaryReader.ReadBytes(4).SequenceEqual(DataBytes))
             {
                 throw new FormatException();
             }
+
+            IV = binaryReader.ReadBytes(16);
             
-            _size = binaryReader.ReadInt32();
-            Data = binaryReader.ReadBytes(_size);
+            Size = binaryReader.ReadInt32();
+            Data = binaryReader.ReadBytes(Size);
             binaryReader.Close();
         }
 
@@ -84,9 +87,10 @@ namespace BootloaderFileFormat
             {
                 binaryWriter.Write(FirmwareVersion[i]);    
             }
-            binaryWriter.Write(_unixCreationTime);
+            binaryWriter.Write(UnixCreationTime);
             binaryWriter.Write(DataBytes);
-            binaryWriter.Write(_size);
+            binaryWriter.Write(IV);
+            binaryWriter.Write(Size);
             binaryWriter.Write(Data);
             binaryWriter.Close();
         }
@@ -107,9 +111,9 @@ namespace BootloaderFileFormat
             }
             stringBuilder.AppendLine();
             stringBuilder.Append("Creation time: ");
-            stringBuilder.AppendLine(DateTimeOffset.FromUnixTimeSeconds(_unixCreationTime).ToString());
+            stringBuilder.AppendLine(DateTimeOffset.FromUnixTimeSeconds(UnixCreationTime).ToString());
             stringBuilder.Append("Firmware size: ");
-            stringBuilder.Append(_size);
+            stringBuilder.Append(Size);
             stringBuilder.AppendLine("B");
             return stringBuilder.ToString();
         }
