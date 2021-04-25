@@ -52,7 +52,13 @@ SECTIONS
     KEEP(*(.isr_vector)) /* Startup code */
     . = ALIGN(4);
   } >FLASH
-
+	.meta_info :
+  {
+    . = ALIGN(4);
+    KEEP(*(.meta_info)) /* Not Startup code */
+    . = ALIGN(4);
+  } >FLASH
+	
   /* The program code and other data into "FLASH" Rom type memory */
   .text :
   {
@@ -69,7 +75,7 @@ SECTIONS
     . = ALIGN(4);
     _etext = .;        /* define a global symbols at end of code */
   } >FLASH
-
+	
   /* Constant data into "FLASH" Rom type memory */
   .rodata :
   {
