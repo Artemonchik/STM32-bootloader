@@ -7,71 +7,123 @@
 # 1 - string message
 # 2 - error message
 # 3 - binary code
+import struct
+import zlib
 from time import sleep
 
-
-def send_raw_data_body(serial_port, data: bytes, transmission_code=1, timeout=10000):
-    length = len(data)
-
-    curr_timeout = serial_port.write_timeout
-    serial_port.write_timeout = timeout
-    serial_port.write(data)
-
-    serial_port.write_timeout = curr_timeout
+packet_counter = 0
 
 
-def send_raw_data_header(serial_port, data: bytes, transmission_code=1, timeout=10000):
-    length = len(data)
-
-    curr_timeout = serial_port.write_timeout
-    serial_port.write_timeout = timeout
-
-    serial_port.write(transmission_code.to_bytes(4, 'little'))
-    serial_port.write(length.to_bytes(4, 'little'))
-
-    serial_port.write_timeout = curr_timeout
+def send_data_header(serial_port, code, length, num, timeout=1000):
+    header = make_raw_data_header(code, length, num)
+    serial_port.write(header)
 
 
-# returns DataCode, DataLen, DataBody
-def send_raw_data(serial_port, data: bytes, transmission_code=1, timeout=10000):
-    send_raw_data_header(serial_port, data, transmission_code, timeout)
-    send_raw_data_body(serial_port, data, transmission_code, timeout)
+def send_raw_data_body(serial_port, data):
+    serial_port.write(data + zlib.crc32(data).to_bytes(length=4, byteorder="little"))
 
 
-def receive_raw_data(serial_port, timeout=1000):
-    curr_timeout = serial_port.timeout
+def send_raw_data(serial_port, transmition_code, length, body, timeout=1000):
     serial_port.timeout = timeout
+    while 1:
+        sleep(0.01)
+        send_data_header(serial_port, transmition_code, length, packet_counter, timeout)
+        try:
+            a, l, b, c = receive_data_header(serial_port)
+        except:
+            print("Error occured, retring")
+            continue
+        if a != Transmition.ACK:
+            continue
+        break
 
-    data_type_b = serial_port.read(4)
-    if len(data_type_b) < 4:
-        return data_type_b, 0, []
-
-    bytes_number_b = serial_port.read(4)
-    if len(bytes_number_b) < 4:
-        return 0, 0, []
-
-    data_type = int.from_bytes(data_type_b, 'little')
-    data_length = int.from_bytes(bytes_number_b, 'little')
-
-
-
-    data = serial_port.read(data_length)
-
-    serial_port.timeout = curr_timeout
-    return  data_type, data_length, data
+    while 1:
+        if length == 0:
+            return True
+        send_raw_data_body(serial_port, body)
+        # wait_for_data(serial_port)
+        try:
+            a, l, b, c = receive_data_header(serial_port)
+        except:
+            print("Error occured, retring")
+            continue
+        if a != Transmition.ACK:
+            continue
+        return True
 
 
-def receive_data(serial_port, timeout=1000):
-    t, l, d = receive_raw_data(serial_port, timeout)
-    return t, l, decode_data(d, t)
+def receive_raw_data_header(serial_port, timeout=1000):
+    raw_data = serial_port.read(4 * 4)
+    return raw_data
 
 
-def decode_data(data, transmission_code=1):
-    if transmission_code == Transmition.REQUEST_BLOCK:
-        block_num = int.from_bytes(data, 'little')
-        return block_num
-    elif transmission_code in [1, 2]:
-        return data.decode("koi8-r")
+def receive_data_header(serial_port, timeout=1000):
+    return parse_header(receive_raw_data_header(serial_port, timeout))
+
+
+def make_raw_data_header(message_code, length, num):
+    raw_data = struct.pack("<III", message_code, length, num)
+    crc = zlib.crc32(raw_data)
+    raw_header = struct.pack("<IIII", message_code, length, num, crc)
+
+    return raw_header
+
+
+def parse_header(header):
+    return struct.unpack("<IIII", header)
+
+
+def send_ack(serial_port, num):
+    raw_data = make_raw_data_header(Transmition.ACK, 0, num)
+    serial_port.write(raw_data)
+
+
+def check_header_crc(header):
+    code, length, num, received_crc = header
+    a, b, c, computed_crc = parse_header(make_raw_data_header(code, length, num))
+    return received_crc == computed_crc
+
+
+def check_body_crc(body, crc):
+    return zlib.crc32(body) == crc
+
+
+def receive_raw_data_body(serial_port, length, timeout=1000):
+    serial_port.timeout = timeout
+    raw_data = serial_port.read(length + 4)
+    result = struct.unpack(f"<{length}sI", raw_data)
+    return result
+
+
+def receive_raw_data(serial_port):
+    while True:
+        try:
+            code, length, num, crc = header = receive_data_header(serial_port)
+        except:
+            continue
+        if not check_header_crc(header):
+            continue
+        send_ack(serial_port, num + 1)
+        if length == 0:
+            return code, length, bytes([])
+        break
+
+    while True:
+        try:
+            body, body_crc = receive_raw_data_body(serial_port, length)
+        except:
+            continue
+        if not check_body_crc(body, body_crc):
+            continue
+        send_ack(serial_port, num + 2)
+        return code, length, body
+
+
+def decode_data(params):
+    transmition_code, length, body = params
+    if transmition_code == Transmition.STRING_MESSAGE:
+        body = body.decode("koi8-r")
+    return transmition_code, length, body
 
 
 def wait_for_data(serial_port):
@@ -85,6 +137,11 @@ class Transmition:
     START_CODE = 0xAE
     STRING_MESSAGE = 1
     ERROR_MESSAGE = 2
-    BINARY_CODE = 3
-    REQUEST_BLOCK = 4
-    
+    PROGRAM = 3
+    REQUEST = 4
+    ACK = 5
+    NEXT = 6
+    BAUDRATE = 7
+    TIMEOUT = 8
+    RELEASE = 9
+    SECRET_KEY = 10
