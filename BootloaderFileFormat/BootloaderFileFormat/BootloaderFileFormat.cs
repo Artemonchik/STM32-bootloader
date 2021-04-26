@@ -10,7 +10,11 @@ namespace BootloaderFileFormat
         private static readonly byte[] HeaderBytes = { (byte)'H', (byte)'E', (byte)'A', (byte)'D', (byte)'E', (byte)'R' };
         private static readonly byte[] DataBytes = {(byte) 'D', (byte) 'A', (byte) 'T', (byte) 'A'};
         
+        
         private string _manufacturerName;
+        /// <summary>
+        /// The manufacturer's name. 
+        /// </summary>
         public string ManufacturerName
         {
             set
@@ -22,6 +26,9 @@ namespace BootloaderFileFormat
         }
 
         private byte[] _data;
+        /// <summary>
+        /// Cipher text.
+        /// </summary>
         public byte[] Data
         {
             set
@@ -33,17 +40,42 @@ namespace BootloaderFileFormat
         }
 
         private short _manufacturerNameSize;
+        /// <summary>
+        /// Size of the cipher text.
+        /// </summary>
         private int Size { set; get; }
+        /// <summary>
+        /// Time at which the BootloaderFile was created.
+        /// </summary>
         private long UnixCreationTime { set; get; }
+        /// <summary>
+        /// Version of the firmware.
+        /// </summary>
         public ushort[] FirmwareVersion { set; get; }
+        /// <summary>
+        /// Initialization vector used while encrypting the cipher text.
+        /// </summary>
         public byte[] IV { set; get; }
 
+        /// <summary>
+        /// Creates an empty BootloaderFile <br/>
+        /// with current time in UnixCreationTime.  
+        /// </summary>
         public BootloaderFile()
         {
             FirmwareVersion = new ushort[4];
             UnixCreationTime = DateTimeOffset.Now.ToUnixTimeSeconds();
         }
         
+        /// <summary>
+        /// Creates a BootloaderFile that is read from an actual file. 
+        /// </summary>
+        /// <param name="filepath">
+        /// Path to the file.
+        /// </param>
+        /// <exception cref="FormatException">
+        /// Thrown when the file is formatted improperly.
+        /// </exception>
         public BootloaderFile(string filepath)
         {
             var fileStream = new FileStream(filepath, FileMode.Open, FileAccess.Read, FileShare.Read);
@@ -75,7 +107,13 @@ namespace BootloaderFileFormat
             Data = binaryReader.ReadBytes(Size);
             binaryReader.Close();
         }
-
+        
+        /// <summary>
+        /// Writes the BootloaderFile on disk. 
+        /// </summary>
+        /// <param name="filepath">
+        /// Path to the file that is going to be written to.
+        /// </param>
         public void WriteBootloaderFile(string filepath)
         {
             var fileStream = new FileStream(filepath, FileMode.OpenOrCreate, FileAccess.Write, FileShare.Write);
@@ -95,6 +133,12 @@ namespace BootloaderFileFormat
             binaryWriter.Close();
         }
 
+        /// <summary>
+        /// Makes BootloaderFile look fancy in a string format.
+        /// </summary>
+        /// <returns>
+        /// A fancy representation of the BootloaderFile's metainfo.
+        /// </returns>
         public string ToFancyString()
         {
             var stringBuilder = new StringBuilder();
