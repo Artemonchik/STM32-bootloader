@@ -21,9 +21,9 @@ with open(code_path, 'rb') as code_file:
     code = bytearray(code_file.read())
 
 # code = bytes(code)
-key = b"11111111111111111111111111111111"
+key = b"12345678901234567890123456789012"
 print(f"key: {key}")
-iv = b"1111111111111111"
+iv = key
 
 # add zero padding
 while len(code) % block_size != 0:
