@@ -1,0 +1,3 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<session version="1.0">&#x0A;<refactoring comment="Rename resource &apos;code-transmition/key.bin&apos; to &apos;key.a&apos;" description="Rename resource &apos;key.bin&apos;" flags="7" id="org.eclipse.ltk.core.refactoring.rename.resource" input="key.bin" name="key.a" stamp="1619492697717" updateReferences="true"/>&#x0A;<refactoring comment="Rename resource &apos;code-transmition/key.a&apos; to &apos;key.bin&apos;" description="Rename resource &apos;key.a&apos;" flags="7" id="org.eclipse.ltk.core.refactoring.rename.resource" input="key.a" name="key.bin" stamp="1619495598231" updateReferences="true"/>
+</session>

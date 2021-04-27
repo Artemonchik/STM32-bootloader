@@ -41,7 +41,9 @@ MEMORY
   RAM    (xrw)    : ORIGIN = 0x20000000,   LENGTH = 40K
   FLASH    (rx)    : ORIGIN = 0x8000000,   LENGTH = 256K
 }
-
+TARGET(binary) 
+INPUT("./key.bin")
+OUTPUT_FORMAT(default)
 /* Sections */
 SECTIONS
 {
@@ -52,7 +54,15 @@ SECTIONS
     KEEP(*(.isr_vector)) /* Startup code */
     . = ALIGN(4);
   } >FLASH
+  .bin_data :
+  {
+  	symbol_1 = .;
+    . = ALIGN(4);
+    KEEP(*(.bin_data)) /* Bin data*/
+    . = ALIGN(4);
+    "./key.bin"
 
+  } >FLASH
   /* The program code and other data into "FLASH" Rom type memory */
   .text :
   {
@@ -69,7 +79,7 @@ SECTIONS
     . = ALIGN(4);
     _etext = .;        /* define a global symbols at end of code */
   } >FLASH
-
+	
   /* Constant data into "FLASH" Rom type memory */
   .rodata :
   {

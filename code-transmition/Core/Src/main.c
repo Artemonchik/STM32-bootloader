@@ -20,10 +20,20 @@
 #define ERRORSTR 2
 #define PROGRAM 3
 #define REQUEST 4
+#define ACK 5
+#define NEXT 6
+#define BAUDRATE 7
+#define TIMEOUT 8
+#define RELEASE 9
+#define SECRET_KEY 10
+
+#define START_SESSION 0xAE
 #define PAGE_SIZE 2048
 #define CBC 1
 #define AES256 1
-#define BUF_SIZE 16
+#define BUF_SIZE (16*16)
+#define CRC_SIZE 4
+#define KEY_SIZE 32
 //#define HAL_FLASH_MODULE_ENABLED
 //#define FLASH_BASE            0x08000000UL /*!< FLASH base address in the alias region */
 //#define CCMDATARAM_BASE       0x10000000UL /*!< CCM(core coupled memory) data RAM base address in the alias region     */
@@ -39,15 +49,43 @@
 /* USER CODE BEGIN Includes */
 #include "stdio.h"
 #include "aes.h"
+#include "string.h"
 //#include "stm32f3xx_hal_flash.h"
 //#include "stm32f3xx_hal_flash_ex.h"
 #include "stdarg.h"
-#include "string.h"
+//#include "string.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
+#pragma pack(1)
+typedef struct FirmwareVersion_s{
+	char companyName[10];
+	uint16_t version[4];
+	uint64_t date;
+	uint32_t size;
+} FirmwareVersion;
 
+
+#pragma pack(1)
+typedef struct HeaderPack_s{
+	uint32_t messageCode;
+	uint32_t len;
+	uint32_t num;
+	uint32_t crc;
+} HeaderPack;
+
+#pragma pack(1)
+typedef struct Pair_s{
+	uint32_t from;
+	uint32_t to;
+	uint32_t crc;
+} Pair;
+
+#pragma pack(1)
+typedef struct BootloaderInfo_s{
+	uint8_t key[32];
+} BootloaderInfo;
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
@@ -79,59 +117,202 @@ static void MX_USART1_UART_Init(void);
 /**
  * integer length value of data you want to send in special format
  */
-HAL_StatusTypeDef sendData(UART_HandleTypeDef *huart, int32_t messageCode,
-		uint8_t *data, uint32_t len, uint32_t timeout) {
-	HAL_UART_Transmit(huart, (uint8_t*) (&len), sizeof(len), timeout);
-	HAL_UART_Transmit(huart, (uint8_t*) (&messageCode), sizeof(messageCode),
-			timeout);
-	return HAL_UART_Transmit(huart, data, len, timeout);
+uint32_t packet_counter = 0;
+uint32_t crc32(const char *s,size_t n) {
+	uint32_t crc=0xFFFFFFFF;
+
+	for(size_t i=0;i<n;i++) {
+		char ch=s[i];
+		for(size_t j=0;j<8;j++) {
+			uint32_t b=(ch^crc)&1;
+			crc>>=1;
+			if(b)
+				crc=crc^0xEDB88320;
+			ch>>=1;
+		}
+	}
+
+	return ~crc;
 }
+
+uint32_t computeHeaderCrc(HeaderPack * header){
+	return crc32((char*)header, sizeof(HeaderPack) - sizeof(header->crc));
+}
+
+void makeHeader(HeaderPack * header, uint32_t messageCode, uint32_t len){
+	header->messageCode = messageCode;
+	header->len = len;
+//	header->num = num;
+	header->crc = computeHeaderCrc(header);
+}
+
+HAL_StatusTypeDef verifyDataHeader(HeaderPack * header){
+	if(computeHeaderCrc(header) != header->crc){
+		return HAL_ERROR;
+	}
+	return HAL_OK;
+}
+
+HAL_StatusTypeDef sendDataHeader(UART_HandleTypeDef *huart, HeaderPack * header, uint32_t timeout){
+	header->crc = computeHeaderCrc(header);
+	HAL_StatusTypeDef res = HAL_UART_Transmit(huart, (uint8_t*) (header), sizeof(HeaderPack), timeout);
+	return res;
+}
+
+HAL_StatusTypeDef sendDataBody(UART_HandleTypeDef *huart, HeaderPack * header, uint8_t *data, uint32_t timeout) {
+	if(header->len == 0 || data == NULL){
+		return 0;
+	}
+	uint32_t crc = crc32((char*)data, header->len);
+	memcpy(data + header->len, (uint8_t*)&crc, sizeof(crc));
+	HAL_StatusTypeDef result = HAL_UART_Transmit(huart, data, header->len + sizeof(crc), timeout);
+	return result;
+}
+
+
+HAL_StatusTypeDef receiveDataHeader(UART_HandleTypeDef * huart, HeaderPack * header, uint32_t timeout){
+	HAL_StatusTypeDef res = HAL_UART_Receive(huart, (uint8_t *) header, (uint16_t) sizeof(HeaderPack), timeout);
+	return res;
+}
+
+HAL_StatusTypeDef receiveDataBodyWithCRC(UART_HandleTypeDef *huart, uint8_t * buff, HeaderPack * header, uint32_t * crc, uint32_t timeout){
+	HAL_StatusTypeDef res = HAL_UART_Receive(huart, buff, header->len + sizeof(uint32_t), timeout);
+	*crc = *((uint32_t *)(&buff[header->len]));
+	return res;
+}
+
+
+// This looks like stop and wait ARQ
+// OMG
+// Its very important part of my life
+int b = 0;
+HAL_StatusTypeDef sendData(UART_HandleTypeDef *huart, HeaderPack * header,
+		uint8_t *data, uint32_t timeout){
+	header->num = packet_counter++;
+	HAL_StatusTypeDef result = HAL_ERROR;
+
+	while(result != HAL_OK){
+		result = sendDataHeader(huart, header, timeout);
+		if(result != HAL_OK)
+			continue;
+		HeaderPack receivedHeader = {0};
+		result = receiveDataHeader(huart, &receivedHeader, timeout);
+		if(result != HAL_OK)
+			continue;
+
+		if(verifyDataHeader(&receivedHeader) != HAL_OK ||
+				receivedHeader.messageCode != ACK /*||
+				receivedHeader.num != header->num + 1*/){
+			result = HAL_ERROR;
+			continue;
+		}
+	}
+	packet_counter++;
+	if(header->len == 0){
+		return HAL_OK;
+	}
+
+	result = HAL_ERROR;
+	while(result != HAL_OK){
+		result = sendDataBody(huart, header, data, timeout);
+		if(result != HAL_OK)
+			continue;
+		HeaderPack receivedHeader;
+		result = receiveDataHeader(huart, &receivedHeader, timeout);
+		if(result != HAL_OK)
+			continue;
+
+		if(verifyDataHeader(&receivedHeader) != HAL_OK ||
+				receivedHeader.messageCode != ACK /*||
+				receivedHeader.num != header->num + 2*/){
+			result = HAL_ERROR;
+			continue;
+		}
+	}
+	return result;
+}
+
+HAL_StatusTypeDef sendAck(UART_HandleTypeDef *huart, uint32_t num, uint32_t timeout){
+	HeaderPack header;
+	header.messageCode = ACK;
+	header.len = 0;
+	header.num = num;
+	return sendDataHeader(huart, &header, timeout);
+}
+
+HAL_StatusTypeDef receiveData(UART_HandleTypeDef *huart, uint8_t * buff, HeaderPack * header, uint32_t timeout){
+	HAL_StatusTypeDef result = HAL_ERROR;
+
+	while(result != HAL_OK){
+		result = receiveDataHeader(huart, header, timeout);
+		if(result != HAL_OK || verifyDataHeader(header) != HAL_OK/*|| header->num != packet_counter*/){
+			result = HAL_ERROR;
+			continue;
+		}
+		/*if(header->num < packet_counter){
+			sendAck(huart, packet_counter, timeout);
+			result = HAL_ERROR;
+			continue;
+		}*/
+		sendAck(huart, header->num + 1, timeout);
+	}
+
+	packet_counter++;
+	if(header->len == 0){
+		return HAL_OK;
+	}
+	result = HAL_ERROR;
+	while(result != HAL_OK){
+		uint32_t crc;
+		result = receiveDataBodyWithCRC(huart, buff, header, &crc, timeout);
+		if(result != HAL_OK || crc32((char*)buff, header->len) != crc){
+			result = HAL_ERROR;
+			continue;
+		}
+		sendAck(huart, header->num + 2, timeout);
+	}
+	packet_counter++;
+	return HAL_OK;
+}
+
 
 /**
  * As you can see, max size of sending string after formating must be at most 255 characters*/
 HAL_StatusTypeDef HAL_printf(const char *format, ...) {
-	char buff[256];
+	char buff[256] = {0};
 	va_list arg;
 	va_start(arg, format);
 	vsprintf(buff, format, arg);
-	HAL_StatusTypeDef result = sendData(&huart1, STR, (uint8_t*) buff,
-			(int32_t) strlen(buff), 3000);
-	va_end(arg);
-	return result;
-}
-HAL_StatusTypeDef HAL_eprintf(const char *format, ...) {
-	char buff[256];
-	va_list arg;
-	va_start(arg, format);
-	vsprintf(buff, format, arg);
-	HAL_StatusTypeDef result = sendData(&huart1, ERRORSTR, (uint8_t*) buff,
-			(int) strlen(buff), 3000);
+	HeaderPack header;
+	makeHeader(&header, STR, strlen(buff));
+	HAL_StatusTypeDef result = sendData(&huart1, &header, (uint8_t *)buff, 3000);
 	va_end(arg);
 	return result;
 }
 
 /**
- * @return uint_32 from UART or -1 if occurred and error
+ * Daniil KLyus -> @ return uint_32 from UART or -1 if occurred and error
  */
-int32_t receive_uint_32(UART_HandleTypeDef *huart, uint32_t timeout) {
-	int32_t result = -1;
-	HAL_UART_Receive(huart, (uint8_t*) (&result), sizeof(int32_t), timeout);
-	return result;
+
+// HAL_StatusTypeDef receiveBlock(UART_HandleTypeDef *huart, uint8_t *buff,
+//		uint32_t timeout, uint16_t buff_size) {
+//	return HAL_UART_Receive(huart, buff,  buff_size, timeout);
+//}
+
+HAL_StatusTypeDef startSession(UART_HandleTypeDef *huart) {
+	uint8_t code = 0xAE;
+	HAL_StatusTypeDef res = HAL_UART_Transmit(huart, &code, sizeof(code), 500);
+	if(res != HAL_OK){
+		return res;
+	}
+	return HAL_UART_Receive(huart, &code, sizeof(code), 500);
 }
 
-HAL_StatusTypeDef receive256bit(UART_HandleTypeDef *huart, uint8_t *buff,
-		uint32_t timeout) {
-	return HAL_UART_Receive(huart, buff, (uint16_t) BUF_SIZE, timeout);
-}
-void sendStartCode(UART_HandleTypeDef *huart) {
-	uint8_t code = 0xAE;
-	HAL_UART_Transmit(huart, &code, sizeof(uint8_t), 100);
-}
 
 /**
  * @note Do not forget unlock memory and erase pages where you want to store data
  */
-HAL_StatusTypeDef store256bit(uint8_t *buff, uint32_t address) {
+HAL_StatusTypeDef storeBlock(uint8_t *buff, uint32_t address) {
 	HAL_StatusTypeDef result = HAL_OK;
 	for (int i = 0; i < BUF_SIZE; i += 4) {
 		HAL_StatusTypeDef currResult = HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD,
@@ -167,7 +348,7 @@ void bootloader_jump_to_user_app(uint32_t address) {
 	jumpAddress = *(__IO uint32_t*) (address + 4);
 
 	JumpToApplication = (pFunction) jumpAddress;
-
+// TODO: Make correct vector table init
 	JumpToApplication();
 }
 
@@ -182,15 +363,43 @@ HAL_StatusTypeDef preparePages(uint32_t address, uint32_t len) {
 	return HAL_FLASHEx_Erase(&eraseConfig, &PageError);
 }
 
-void askForNext128bit(UART_HandleTypeDef *huart) {
-	uint8_t buff[1];
-	sendData(huart, REQUEST, buff, 0, 1000);
+//void askForNextBlock(UART_HandleTypeDef *huart, uint32_t block_num) {
+//	 sendData(huart, REQUEST, (uint8_t*)&block_num, sizeof(block_num), 1000);
+//}
+
+void sendReadyToNextCommand(UART_HandleTypeDef * huart, uint32_t timeout){
+	HeaderPack header;
+	makeHeader(&header, NEXT, 0);
+	sendData(&huart1, &header, NULL, timeout);
 }
 uint8_t key[33] = "11111111111111111111111111111111";
 struct AES_ctx ctx;
 
 void decrypt(uint8_t * buff, size_t length){
 	AES_CBC_decrypt_buffer(&ctx, buff, length);
+}
+
+void changeBaud(UART_HandleTypeDef * huart, uint32_t baudrate){
+	HAL_UART_DeInit(&huart1);
+	huart->Init.BaudRate = baudrate;
+	if (HAL_UART_Init(&huart1) != HAL_OK) {
+	    Error_Handler();
+	}
+}
+
+void askForNextBlock(UART_HandleTypeDef * huart, uint32_t from, uint32_t to, uint32_t timeout){
+	Pair body;
+	body.from = from;
+	body.to = to;
+	HeaderPack header;
+	makeHeader(&header, REQUEST, sizeof(body) - sizeof(uint32_t));
+	sendData(huart, &header, (uint8_t*)&body, timeout);
+}
+extern unsigned int symbol_1;
+
+void readInformationAboutBootloader(){
+	uint8_t * bin_start_ptr = (uint8_t*)&symbol_1;
+	memcpy(key, bin_start_ptr, KEY_SIZE);
 }
 /* USER CODE END 0 */
 
@@ -200,6 +409,7 @@ void decrypt(uint8_t * buff, size_t length){
   */
 int main(void)
 {
+	readInformationAboutBootloader();
   /* USER CODE BEGIN 1 */
 	AES_init_ctx_iv(&ctx, key, key);
   /* USER CODE END 1 */
@@ -224,76 +434,92 @@ int main(void)
   MX_GPIO_Init();
   MX_USART1_UART_Init();
   /* USER CODE BEGIN 2 */
-
 	uint32_t address = 0x08020000;
-	uint32_t timeout = 500;
-	sendStartCode(&huart1);
-	int32_t len = receive_uint_32(&huart1, timeout);
-	int32_t dataCode = receive_uint_32(&huart1, timeout);
-	HAL_printf("%d - bytes going to be received", len);
-	HAL_printf("%u - data code was received", dataCode);
-	if (len == -1) {
+	uint32_t timeout = 3600;
+	HAL_StatusTypeDef res = startSession(&huart1);
+	if (res != HAL_OK) {
 		bootloader_jump_to_user_app(address);
-		HAL_printf("No data was received, starts the main program");
-	}
-	if (len % BUF_SIZE != 0) {
-		HAL_eprintf("Length of the file must be divisible by BUF_SIZE");
-		return 2;
 	}
 
-	if (dataCode == PROGRAM) {
-		HAL_printf("Program is pending");
-		if (HAL_FLASH_Unlock() == HAL_OK) {
-			HAL_printf("Unlocking was successful");
-		} else {
-			HAL_eprintf("Unlocking failed");
-		};
-		HAL_StatusTypeDef result = preparePages(address, len);
-		if (result != HAL_OK) {
-			HAL_eprintf(
-					"An error occurred while erasing pages started with the address",
-					address);
-			return 2;
+	while(1){
+		uint8_t buff[2 * BUF_SIZE + CRC_SIZE];
+		HeaderPack header;
+		sendReadyToNextCommand(&huart1, timeout);
+		receiveData(&huart1, buff, &header, 36000);
+		if(header.messageCode == BAUDRATE){
+				uint32_t baudrate = *(uint32_t*)buff;
+				changeBaud(&huart1, baudrate);
+				continue;
 		}
-		if (result == HAL_OK) {
-			HAL_printf("Pages was erased successfully");
+		if(header.messageCode == 1){
+			sendData(&huart1, &header, buff, timeout);
 		}
-
-		for (int32_t i = 0; i < len; i += BUF_SIZE, address += BUF_SIZE) {
-			uint8_t buff[BUF_SIZE];
-			askForNext128bit(&huart1);
-			HAL_StatusTypeDef result = receive256bit(&huart1, buff,
-					timeout + 400);
-			decrypt(buff, BUF_SIZE);
-			if (result != HAL_OK) {
-				HAL_eprintf(
-						"An error occurred while transferring data: %d block",
-						i / BUF_SIZE);
-				return 2;
-			}
-			if (result == HAL_OK) {
-				HAL_printf("%d block was received", i / BUF_SIZE);
-				HAL_printf("message is: %s", buff);
-			}
-
-			HAL_StatusTypeDef writeResult = store256bit(buff, address);
-			if (writeResult == HAL_OK) {
-				HAL_printf("%d block was received and stored at 0x%x address",
-						i / BUF_SIZE, address);
+		if(header.messageCode == TIMEOUT){
+			uint32_t t = *(uint32_t*)buff;
+			timeout = t;
+		}
+		if(header.messageCode == RELEASE){
+			bootloader_jump_to_user_app(address);
+			break;
+		}
+		if(header.messageCode == SECRET_KEY){
+			memcpy(buff, key, KEY_SIZE);
+			makeHeader(&header, SECRET_KEY, KEY_SIZE);
+			sendData(&huart1, &header, buff, timeout);
+		}
+		if (header.messageCode == PROGRAM) {
+			uint32_t len = *(uint32_t*)buff;
+			HAL_printf("Program is pending with len %d", len);
+			if (HAL_FLASH_Unlock() == HAL_OK) {
+				HAL_printf("Unlocking was successful");
 			} else {
+				HAL_printf("Unlocking failed");
+			};
+			HAL_StatusTypeDef result = preparePages(address, len);
+			if (result != HAL_OK) {
 				HAL_printf(
-						"An error occurred while writing data: %d block in 0x%x address",
-						i / BUF_SIZE, address);
+						"An error occurred while erasing pages started with the address",
+						address);
+			}else {
+				HAL_printf("Pages was erased successfully");
 			}
+			for (uint32_t i = 0; i < len; i += BUF_SIZE) {
+				askForNextBlock(&huart1, i, i + BUF_SIZE, timeout);
+				HAL_StatusTypeDef result = receiveData(&huart1, buff, &header, timeout);
+				int c = 0;
+				c++;
+				decrypt((uint8_t*)buff, BUF_SIZE);
+				if (result != HAL_OK) {
+					HAL_printf(
+							"An error occurred while transferring data: %d block",
+							i / BUF_SIZE);
+					return 2;
+				}
+				if (result == HAL_OK) {
+					HAL_printf("%d block was received", i / BUF_SIZE);
+				}
 
+				HAL_StatusTypeDef writeResult = storeBlock(buff, address + i);
+				if (writeResult == HAL_OK) {
+					HAL_printf("%d block was received and stored at 0x%x address",
+							i / BUF_SIZE, address + i);
+				} else {
+					HAL_printf(
+							"An error occurred while writing data: %d block in 0x%x address",
+							i / BUF_SIZE, address + i);
+				}
+
+			}
+			HAL_FLASH_Lock();
+			}
 		}
-		HAL_FLASH_Lock();
-	}
 
-	HAL_printf(
-			"#####\n#####\n All data was received and successfully stored \n#####\n#####\n");
-	address = 0x08020000;
-	bootloader_jump_to_user_app(address);
+//
+//
+//	HAL_printf(
+//			"#####\n#####\n All data was received and successfully stored \n#####\n#####\n");
+//	address = 0x08020000;
+//	bootloader_jump_to_user_app(address);
   /* USER CODE END 2 */
 
   /* Infinite loop */
