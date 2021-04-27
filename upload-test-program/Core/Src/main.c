@@ -66,8 +66,14 @@ void togglePins(){
 			GPIO_PIN_14,
 			GPIO_PIN_15
 	};
-
-	HAL_GPIO_TogglePin(GPIOE, pins[(state + 1) % 8]);
+	if(!start){
+			HAL_GPIO_TogglePin(GPIOE, pins[1]);
+			HAL_GPIO_TogglePin(GPIOE, pins[2]);
+			HAL_GPIO_TogglePin(GPIOE, pins[3]);
+	}else{
+		HAL_GPIO_TogglePin(GPIOE, pins[(state) % 8]);
+		HAL_GPIO_TogglePin(GPIOE, pins[(state + 3) % 8]);
+	}
 	state++;
 	state %= 8;
 	start = 1;
@@ -114,7 +120,7 @@ int main(void)
 
     /* USER CODE BEGIN 3 */
 	  togglePins();
-	  HAL_Delay(1000);
+	  HAL_Delay(150);
   }
   /* USER CODE END 3 */
 }

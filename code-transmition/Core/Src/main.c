@@ -61,8 +61,8 @@
 #pragma pack(1)
 typedef struct FirmwareVersion_s{
 	char companyName[10];
-	uint8_t version[4];
-	char date[14];
+	uint16_t version[4];
+	uint64_t date;
 	uint32_t size;
 } FirmwareVersion;
 
@@ -81,6 +81,11 @@ typedef struct Pair_s{
 	uint32_t to;
 	uint32_t crc;
 } Pair;
+
+#pragma pack(1)
+typedef struct BootloaderInfo_s{
+	uint8_t key[32];
+} BootloaderInfo;
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
@@ -390,6 +395,12 @@ void askForNextBlock(UART_HandleTypeDef * huart, uint32_t from, uint32_t to, uin
 	makeHeader(&header, REQUEST, sizeof(body) - sizeof(uint32_t));
 	sendData(huart, &header, (uint8_t*)&body, timeout);
 }
+extern unsigned int symbol_1;
+
+void readInformationAboutBootloader(){
+	uint8_t * bin_start_ptr = (uint8_t*)&symbol_1;
+	memcpy(key, bin_start_ptr, KEY_SIZE);
+}
 /* USER CODE END 0 */
 
 /**
@@ -398,6 +409,7 @@ void askForNextBlock(UART_HandleTypeDef * huart, uint32_t from, uint32_t to, uin
   */
 int main(void)
 {
+	readInformationAboutBootloader();
   /* USER CODE BEGIN 1 */
 	AES_init_ctx_iv(&ctx, key, key);
   /* USER CODE END 1 */
