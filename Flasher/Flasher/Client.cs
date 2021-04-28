@@ -8,6 +8,7 @@ using System.Security.Cryptography;
 using System.IO;
 using System.Threading;
 using System.Diagnostics.Tracing;
+using System.Windows.Forms;
 
 namespace Flasher
 {
@@ -18,7 +19,15 @@ namespace Flasher
 
     class Client
     {
-        public static void Main(string portName, int baudRate, int dataBits, StopBits stopBits, byte[] code)
+        /// <summary>
+        /// Client's point of entry
+        /// </summary>
+        /// <param name="portName"> Name of SerialPort</param>
+        /// <param name="baudRate"> Baud rate for the serial port </param>
+        /// <param name="dataBits"> Standard number of data bits per byte</param>
+        /// <param name="stopBits">Stop Bits for SerialPort </param>
+        /// <param name="code">binary data to transmit</param>
+        public void Main(string portName, int baudRate, int dataBits, StopBits stopBits, byte[] code, Form1 parentForm)
         {
             int block_size = 16;
             String decoded_data;
@@ -26,7 +35,10 @@ namespace Flasher
 
             Console.WriteLine("Waiting for the start code/n");
             Console.Write(code);
-             //TODO: add 00 to the end of code, if % blocksize != 0
+
+            while (code.Length % block_size != 0) {
+                Data_transmition.addByteToArray(code, 0x00);
+            }
 
             //open SerialPort and if smth wrong -> catch ex
             try
@@ -61,6 +73,7 @@ namespace Flasher
                 _serialPort.Close();
             }
 
+
             //waiting for communication with SerialPort
             while (true) 
             {
@@ -81,20 +94,20 @@ namespace Flasher
                 }
             }
             Data_transmition.Send_data_header(_serialPort, code, 3);
-            int i = 0;
+            int current_bytes = 0;
             while (true) 
             {
                 Data_transmition.Wait_for_data(_serialPort);
                 Data_s recieved_data = Data_transmition.Receive_data(_serialPort);
                 Console.WriteLine($"Data Length: {recieved_data.length} Data type:{recieved_data.type}");
-
                 if (recieved_data.type == 4)
                 {
-
-                    Data_transmition.Send_data(_serialPort, code, block_size, i + block_size, 3);
-                    i += block_size;
+                     
+                    Data_transmition.Send_data(_serialPort, code, block_size, current_bytes, 3);
+                    parentForm.ProgressChanged((int)(100 * current_bytes) / code.Length);
+                    current_bytes += block_size;
                     
-                    if (i > code.Length)
+                    if (current_bytes >= code.Length)
                     {
                         break;
                     }
@@ -108,6 +121,8 @@ namespace Flasher
                 }
             }
 
+            //Clearing Buffer and close Port for restarting next 
+            _serialPort.DiscardInBuffer();
             _serialPort.Close();
 
 

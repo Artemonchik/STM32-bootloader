@@ -10,17 +10,17 @@ using System.Windows.Forms;
 using System.IO.Ports;
 using System.IO;
 using System.Media;
+using BootloaderFileFormat;
 
 namespace Flasher
 {
 
     public partial class Form1 : Form
     {
-        //for storing path
         string file_name;
         string port_name;
         int baudrate;
-
+        BootloaderFile bff;
         public Form1()
         {
             InitializeComponent();
@@ -39,6 +39,10 @@ namespace Flasher
             {
                 textBox1.Text = ofd.SafeFileName;
                 file_name = ofd.FileName;
+                bff = new BootloaderFile(file_name);
+                string result = System.Text.Encoding.UTF8.GetString(bff.IV);
+                //Console.WriteLine($"{ bff.ToFancyString()} IV: {result} ");
+                richTextBox1.Text = bff.ToFancyString();
             }
         }
 
@@ -56,14 +60,14 @@ namespace Flasher
             }
         }
 
-        private async void Button1_Click(object sender, EventArgs e)
+        private  void Button1_Click(object sender, EventArgs e)
         {
             button1.Enabled = false;
+            //BootloaderFile bff = new BootloaderFile(file_name);
             try
             {
-                var bin = await ReadFile(file_name);
-                /* try to upload */
-                Client.Main(port_name, baudrate, Constants.DataBits, StopBits.One, bin);
+                //var bin =  ReadFile(file_name);
+                new Client().Main(port_name, baudrate, Constants.DataBits, StopBits.One, bff.Data, this);
             }
             catch (Exception ex)
             {
@@ -80,23 +84,18 @@ namespace Flasher
             baudrate = int.Parse((string)comboBox2.SelectedItem);
         }
 
-        private async Task<byte[]> ReadFile(string fname)
+        /*
+        private byte[] ReadFile(string fname)
         {
             byte[] bin;
 
-            /* open file */
-            using (var s = new FileStream(fname, FileMode.Open,
-                    FileAccess.Read))
-            {
-                /* allocate memory */
-                bin = new byte[s.Length];
-                /* read file contents */
-                await s.ReadAsync(bin, 0, bin.Length);
-            }
-
-            /* return binary image */
+            var s = new FileStream(fname, FileMode.Open, FileAccess.Read);
+            var s = new
+            bin = new byte[s.Length];
+            s.Read(bin, 0, bin.Length);
             return bin;
         }
+        */
         private void UpdateStatus(bool ding, string text)
         {
 
@@ -110,7 +109,14 @@ namespace Flasher
 
         private void ProgressBar1_Click(object sender, EventArgs e)
         {
-            //TODO
+            progressBar1.Minimum = 0;
+            progressBar1.Maximum = 100;
+
         }
+        public void ProgressChanged(int progress)
+        {
+            progressBar1.Value = progress + 1;
+        }
+
     }
 }

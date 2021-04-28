@@ -81,5 +81,11 @@
   <ItemGroup>
     <None Include="App.config" />
   </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\..\Desktop\CS NSU\boobs2\STM32-bootloader\BootloaderFileFormat\BootloaderFileFormat\BootloaderFileFormat.csproj">
+      <Project>{17f23cd2-09df-459f-8abf-be6b3882aeaa}</Project>
+      <Name>BootloaderFileFormat</Name>
+    </ProjectReference>
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>
