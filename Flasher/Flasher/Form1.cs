@@ -21,6 +21,8 @@ namespace Flasher
         string port_name;
         int baudrate;
         BootloaderFile bff;
+        const int RESTART_FILE_PARAMS = 1;
+        const int RESTART_SUCCESS_PARAMS = 2;
         public Form1()
         {
             InitializeComponent();
@@ -30,6 +32,22 @@ namespace Flasher
         {
             comboBox1.DataSource = SerialPort.GetPortNames();
         }
+        public void Restart_Params(int scenario)
+        {
+            switch (scenario) {
+                case (RESTART_FILE_PARAMS):
+                    textBox1.Text = null;
+                    file_name = null;
+                    richTextBox1.Text = null;
+                    progressBar1.Value = 0;
+                    break;
+                case (RESTART_SUCCESS_PARAMS):
+                    progressBar1.Value = 0;
+                    button1.Enabled = true;
+                    break;
+            }
+        }
+
 
         //Open file and store it path...
         private void Button2_Click(object sender, EventArgs e)
@@ -39,10 +57,18 @@ namespace Flasher
             {
                 textBox1.Text = ofd.SafeFileName;
                 file_name = ofd.FileName;
-                bff = new BootloaderFile(file_name);
-                string result = System.Text.Encoding.UTF8.GetString(bff.IV);
-                //Console.WriteLine($"{ bff.ToFancyString()} IV: {result} ");
-                richTextBox1.Text = bff.ToFancyString();
+                try
+                {
+                    bff = new BootloaderFile(file_name);
+                    //string result = System.Text.Encoding.UTF8.GetString(bff.IV);
+                    //Console.WriteLine($"{ bff.ToFancyString()} IV: {result} ");
+                    richTextBox1.Text = bff.ToFancyString();
+                }
+                catch (Exception ex) 
+                {
+                    Restart_Params(RESTART_FILE_PARAMS);
+                    UpdateStatus(true, ex.Message);
+                }
             }
         }
 
@@ -76,7 +102,8 @@ namespace Flasher
             }
             finally
             {
-                button1.Enabled = true;
+                MessageBox.Show("Success", "Notification", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                Restart_Params(RESTART_SUCCESS_PARAMS);
             }
         }
         private void ComboBox2_SelectedIndexChanged(object sender, EventArgs e)
@@ -98,13 +125,13 @@ namespace Flasher
         */
         private void UpdateStatus(bool ding, string text)
         {
-
             /* play a system sound? */
             if (ding)
             {
                 /* ^^ ding! */
                 SystemSounds.Exclamation.Play();
             }
+            MessageBox.Show(text, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
 
         private void ProgressBar1_Click(object sender, EventArgs e)
@@ -115,7 +142,12 @@ namespace Flasher
         }
         public void ProgressChanged(int progress)
         {
-            progressBar1.Value = progress + 1;
+            progressBar1.Value = progress;
+        }
+
+        private void aboutToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            MessageBox.Show("Created by Patrushev Borya," + Environment.NewLine + "Vasilev Pavel and Tarasov Artem", "Creators", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
 
     }

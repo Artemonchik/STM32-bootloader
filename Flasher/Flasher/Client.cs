@@ -9,6 +9,7 @@ using System.IO;
 using System.Threading;
 using System.Diagnostics.Tracing;
 using System.Windows.Forms;
+using System.ComponentModel.Design;
 
 namespace Flasher
 {
@@ -29,16 +30,13 @@ namespace Flasher
         /// <param name="code">binary data to transmit</param>
         public void Main(string portName, int baudRate, int dataBits, StopBits stopBits, byte[] code, Form1 parentForm)
         {
-            int block_size = 16;
+            int flag = 0;
+            int currentBytesSended = 0;
             String decoded_data;
             SerialPort _serialPort = new SerialPort(portName, baudRate, Parity.None , dataBits, stopBits);
 
-            Console.WriteLine("Waiting for the start code/n");
+            Console.WriteLine("Waiting for the start code");
             Console.Write(code);
-
-            while (code.Length % block_size != 0) {
-                Data_transmition.addByteToArray(code, 0x00);
-            }
 
             //open SerialPort and if smth wrong -> catch ex
             try
@@ -75,6 +73,8 @@ namespace Flasher
 
 
             //waiting for communication with SerialPort
+            Console.WriteLine("Waiting for communication");
+            //Data_transmition.Wait_for_data(_serialPort);
             while (true) 
             {
                 if (_serialPort.BytesToRead > 0)
@@ -82,43 +82,98 @@ namespace Flasher
                     byte[] uno_Byte = new byte[10];
                     _serialPort.Read(uno_Byte, 0, sizeof(byte) * 1);
                     int transmission_code = BitConverter.ToInt32(uno_Byte, 0);
-                    if (transmission_code == 0xAE) {
-                        Console.WriteLine("The 0xAE was received. Started sending data/n");
+                    if (transmission_code == Transmition.START_CODE) {
+                        Console.WriteLine("session successful started");
 
                         break;
-                    }
+                    }   
                     else {
-                        Console.WriteLine($"{transmission_code} doesn't match the standard 0xAE");
+                        Console.WriteLine("ERROR IN CODE");
 
                     }
                 }
             }
-            Data_transmition.Send_data_header(_serialPort, code, 3);
-            int current_bytes = 0;
+            _serialPort.Write(BitConverter.GetBytes(Transmition.START_CODE), 0, 1);
+            Console.WriteLine("Communication was started");
             while (true) 
             {
                 Data_transmition.Wait_for_data(_serialPort);
-                Data_s recieved_data = Data_transmition.Receive_data(_serialPort);
-                Console.WriteLine($"Data Length: {recieved_data.length} Data type:{recieved_data.type}");
-                if (recieved_data.type == 4)
+                Data_s recieved_data = Data_transmition.ReceiveRawData(_serialPort);
+
+                if (recieved_data.code == Transmition.NEXT)
                 {
-                     
-                    Data_transmition.Send_data(_serialPort, code, block_size, current_bytes, 3);
-                    parentForm.ProgressChanged((int)(100 * current_bytes) / code.Length);
-                    current_bytes += block_size;
-                    
-                    if (current_bytes >= code.Length)
-                    {
-                        break;
-                    }
+                    Console.WriteLine("Request for next block received");
                 }
-                else
+                else if (recieved_data.code == Transmition.REQUEST)
                 {
-                    
+                    Console.WriteLine($"{recieved_data.data}");
+                    uint f = BitConverter.ToUInt32(recieved_data.data, 0);
+                    uint t = BitConverter.ToUInt32(recieved_data.data, 4);
+                    Console.WriteLine($"{f} {t} and len of sended data is {code.Skip((int)f).Take((int)(t - f)).ToArray().Length}");
+                    Data_transmition.SendRawData(_serialPort, Transmition.PROGRAM, code.Skip((int)f).Take((int)(t - f)).ToArray().Length, code.Skip((int)f).Take((int)(t - f)).ToArray());
+                    currentBytesSended += code.Skip((int)f).Take((int)(t - f)).ToArray().Length;
+                    parentForm.ProgressChanged((int)(100 * currentBytesSended / code.Length));
+                    continue;
+                }
+                else {
+                    //Console.WriteLine($"Data received: {recieved_data.data}");
                     decoded_data = Data_transmition.Decode_data(recieved_data);
                     Console.WriteLine($"Data: {decoded_data}");
-                    Array.Clear(recieved_data.data, 0, recieved_data.length);
+                    continue;
                 }
+                if (flag == 0)
+                {
+                    byte[] program = BitConverter.GetBytes(code.Length);
+                    Console.WriteLine($"Data len is {code.Length}");
+                    Data_transmition.SendRawData(_serialPort, Transmition.PROGRAM, program.Length, program);
+                    flag = 1;
+                    continue;
+                }else
+                {
+                    byte[] release = new byte[1];
+                    Data_transmition.SendRawData(_serialPort, Transmition.RELEASE, 0, release);
+                    Console.WriteLine("Bye-Bye");
+                    break;
+                }
+                /*
+                int val = Convert.ToInt32(Console.ReadLine());
+                switch (val) 
+                {
+                    case Transmition.BAUDRATE:
+                        Console.WriteLine("Enter New BaudRate");
+                        int baudrate = Convert.ToInt32(Console.ReadLine());
+                        Data_transmition.SendRawData(_serialPort, Transmition.BAUDRATE, sizeof(int), BitConverter.GetBytes(baudRate));
+                        _serialPort.BaudRate = baudrate;
+                        continue;
+                    case (Transmition.STRING_MESSAGE):
+                        Data_transmition.SendRawData(_serialPort, Transmition.STRING_MESSAGE, mes.Length, Encoding.ASCII.GetBytes(mes), 10);
+                        Console.WriteLine($"{Data_transmition.Decode_data(Data_transmition.ReceiveRawData(_serialPort))}");
+                        continue;
+                    case (Transmition.TIMEOUT):
+                        Console.WriteLine("Enter New timeout");
+                        int timeout = Convert.ToInt32(Console.ReadLine());
+                        Data_transmition.SendRawData(_serialPort, Transmition.TIMEOUT, sizeof(int), BitConverter.GetBytes(timeout));
+                        continue;
+                    case (Transmition.PROGRAM):
+                        byte[] program = BitConverter.GetBytes(code.Length);
+                        Console.WriteLine($"Data len is {code.Length}");
+                        Data_transmition.SendRawData(_serialPort, Transmition.PROGRAM, program.Length, program);
+                        continue;
+                    case (Transmition.RELEASE):
+                        byte[] release = new byte[0];
+                        Data_transmition.SendRawData(_serialPort, Transmition.RELEASE, 0, release);
+                        Console.WriteLine("Bye-Bye");
+                        break;
+                    case (Transmition.SECRET_KEY):
+                        byte[] key = new byte[1];
+                        Data_transmition.SendRawData(_serialPort, Transmition.SECRET_KEY, 0, key);
+                        continue;
+
+
+            }
+            */
+
+
             }
 
             //Clearing Buffer and close Port for restarting next 

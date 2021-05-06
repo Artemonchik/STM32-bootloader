@@ -1,10 +1,15 @@
 C:\Users\KazukiNagasa\source\repos\Flasher\Flasher\bin\Debug\Flasher.exe.config
 C:\Users\KazukiNagasa\source\repos\Flasher\Flasher\bin\Debug\Flasher.exe
 C:\Users\KazukiNagasa\source\repos\Flasher\Flasher\bin\Debug\Flasher.pdb
+C:\Users\KazukiNagasa\source\repos\Flasher\Flasher\bin\Debug\BootloaderFileFormat.dll
+C:\Users\KazukiNagasa\source\repos\Flasher\Flasher\bin\Debug\BootloaderFileFormat.pdb
 C:\Users\KazukiNagasa\source\repos\Flasher\Flasher\obj\Debug\Flasher.csprojAssemblyReference.cache
+C:\Users\KazukiNagasa\source\repos\Flasher\Flasher\obj\Debug\Flasher.Form1.resources
 C:\Users\KazukiNagasa\source\repos\Flasher\Flasher\obj\Debug\Flasher.Properties.Resources.resources
 C:\Users\KazukiNagasa\source\repos\Flasher\Flasher\obj\Debug\Flasher.csproj.GenerateResource.cache
 C:\Users\KazukiNagasa\source\repos\Flasher\Flasher\obj\Debug\Flasher.csproj.CoreCompileInputs.cache
+C:\Users\KazukiNagasa\source\repos\Flasher\Flasher\obj\Debug\Flasher.csproj.CopyComplete
 C:\Users\KazukiNagasa\source\repos\Flasher\Flasher\obj\Debug\Flasher.exe
 C:\Users\KazukiNagasa\source\repos\Flasher\Flasher\obj\Debug\Flasher.pdb
-C:\Users\KazukiNagasa\source\repos\Flasher\Flasher\obj\Debug\Flasher.Form1.resources
+C:\Users\KazukiNagasa\source\repos\Flasher\Flasher\bin\Debug\Crc32.NET.dll
+C:\Users\KazukiNagasa\source\repos\Flasher\Flasher\bin\Debug\Crc32.NET.xml
