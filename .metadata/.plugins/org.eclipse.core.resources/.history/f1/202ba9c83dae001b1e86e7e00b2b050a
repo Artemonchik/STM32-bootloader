@@ -28,13 +28,12 @@
 #define SECRET_KEY 10
 
 #define START_SESSION 0xAE
-#define PAGE_SIZE FLASH_PAGE_SIZE
+#define PAGE_SIZE 2048
 #define CBC 1
 #define AES256 1
 #define BUF_SIZE (16*16)
 #define CRC_SIZE 4
 #define KEY_SIZE 32
-#define ADDRESS 0x08004E20
 //#define HAL_FLASH_MODULE_ENABLED
 //#define FLASH_BASE            0x08000000UL /*!< FLASH base address in the alias region */
 //#define CCMDATARAM_BASE       0x10000000UL /*!< CCM(core coupled memory) data RAM base address in the alias region     */
@@ -320,7 +319,6 @@ HAL_StatusTypeDef storeBlock(uint8_t *buff, uint32_t address) {
 				address + i, ((uint32_t*) buff)[i / 4]);
 		if (currResult != HAL_OK) {
 			result = currResult;
-			return result;
 		}
 	}
 	return result;
@@ -359,10 +357,8 @@ void bootloader_jump_to_user_app(uint32_t address) {
  */
 HAL_StatusTypeDef preparePages(uint32_t address, uint32_t len) {
 	uint32_t numberOfPages = (len / PAGE_SIZE) + 1;
-	FLASH_EraseInitTypeDef eraseConfig;
-	eraseConfig.TypeErase = FLASH_TYPEERASE_PAGES;
-	eraseConfig.NbPages = numberOfPages;
-	eraseConfig.PageAddress = address;
+	FLASH_EraseInitTypeDef eraseConfig = { FLASH_TYPEERASE_PAGES, address,
+			numberOfPages };
 	uint32_t PageError;
 	return HAL_FLASHEx_Erase(&eraseConfig, &PageError);
 }
@@ -411,7 +407,7 @@ void readInformationAboutBootloader(){
   * @brief  The application entry point.
   * @retval int
   */
-int main(void){
+int main(void)
   /* USER CODE BEGIN 1 */
 	readInformationAboutBootloader();
 	AES_init_ctx_iv(&ctx, key, key);
@@ -437,7 +433,7 @@ int main(void){
   MX_GPIO_Init();
   MX_USART1_UART_Init();
   /* USER CODE BEGIN 2 */
-	uint32_t address = 0x08004E20;
+	uint32_t address = 0x08020000;
 	uint32_t timeout = 3600;
 	HAL_StatusTypeDef res = startSession(&huart1);
 	if (res != HAL_OK) {
