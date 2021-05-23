@@ -8,7 +8,7 @@ from security import *
 from data_transmition import *
 
 block_size = 16 * 16
-serial_port = serial.Serial(port="COM3", baudrate=115200,
+serial_port = serial.Serial(port="COM9", baudrate=115200,
                             bytesize=8, timeout=None, stopbits=serial.STOPBITS_ONE)
 
 # The transmission between us and STM-32 start with sending by STM32 0xAB that means it wants to receive data
@@ -21,12 +21,12 @@ with open(code_path, 'rb') as code_file:
     code = bytearray(code_file.read())
 
 # code = bytes(code)
-key = b"12345678901234567890123456789012"
+key = b"11145678901234567890123456789012"
 print(f"key: {key}")
 iv = key
 
 # add zero padding
-while len(code) % block_size != 0:
+while len(code) % 16 != 0:
     code = code + b'\x00'
 # encrypt code
 

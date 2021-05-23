@@ -42,7 +42,7 @@ MEMORY
   FLASH    (rx)    : ORIGIN = 0x8000000,   LENGTH = 256K
 }
 TARGET(binary) 
-INPUT("./key.bin")
+INPUT("../Core/Src/key.bin")
 OUTPUT_FORMAT(default)
 /* Sections */
 SECTIONS
@@ -60,7 +60,7 @@ SECTIONS
     . = ALIGN(4);
     KEEP(*(.bin_data)) /* Bin data*/
     . = ALIGN(4);
-    "./key.bin"
+    "../Core/Src/key.bin"
 
   } >FLASH
   /* The program code and other data into "FLASH" Rom type memory */

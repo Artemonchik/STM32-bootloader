@@ -23,7 +23,7 @@ def send_raw_data_body(serial_port, data):
     serial_port.write(data + zlib.crc32(data).to_bytes(length=4, byteorder="little"))
 
 
-def send_raw_data(serial_port, transmition_code, length, body, timeout=1000):
+def send_raw_data(serial_port, transmition_code, length, body, timeout=2300):
     serial_port.timeout = timeout
     while 1:
         sleep(0.01)
@@ -99,9 +99,11 @@ def receive_raw_data(serial_port):
     while True:
         try:
             code, length, num, crc = header = receive_data_header(serial_port)
-        except:
+        except :
+            print("wrong format header")
             continue
         if not check_header_crc(header):
+            print("wrong crc header")
             continue
         send_ack(serial_port, num + 1)
         if length == 0:
@@ -112,8 +114,10 @@ def receive_raw_data(serial_port):
         try:
             body, body_crc = receive_raw_data_body(serial_port, length)
         except:
+            print("wrong format body")
             continue
         if not check_body_crc(body, body_crc):
+            print("wrong crc body")
             continue
         send_ack(serial_port, num + 2)
         return code, length, body
