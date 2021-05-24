@@ -8,7 +8,7 @@ from security import *
 from data_transmition import *
 
 block_size = 16 * 16
-serial_port = serial.Serial(port="COM9", baudrate=115200,
+serial_port = serial.Serial(port="COM7", baudrate=115200,
                             bytesize=8, timeout=None, stopbits=serial.STOPBITS_ONE)
 
 # The transmission between us and STM-32 start with sending by STM32 0xAB that means it wants to receive data
@@ -24,7 +24,7 @@ with open(code_path, 'rb') as code_file:
 key = b"11145678901234567890123456789012"
 print(f"key: {key}")
 iv = key
-
+serial_port.reset_input_buffer()
 # add zero padding
 while len(code) % 16 != 0:
     code = code + b'\x00'
@@ -50,13 +50,12 @@ while 1:
     if message_code == Transmition.NEXT:
         print("Request for next block received")
     elif message_code == Transmition.REQUEST:
-        print(data)
         f, t = struct.unpack("<II", data)
         print(f"{f} {t} and len of sended data is {len(code[f:t])}")
         send_raw_data(serial_port, Transmition.PROGRAM, len(code[f:t]), code[f:t], timeout=1)
         continue
     else:
-        print(f"Data received: {data}")
+        # print(f"Data received: {data}")
         continue
     val = int(input("Enter what you want to do: "))
     if val == Transmition.BAUDRATE:
@@ -65,7 +64,7 @@ while 1:
         serial_port.baudrate = baudrate
         sleep(0.1)
     if val == 1:
-        send_raw_data(serial_port, 1, len(mes), mes.encode(), 10)
+        send_raw_data(serial_port, 1, len(mes), mes.encode(), 1.2)
         print(decode_data(receive_raw_data(serial_port)))
     if val == Transmition.TIMEOUT:
         timeout = int(input("Введите новое значение timeout: "))
@@ -73,7 +72,7 @@ while 1:
     if val == Transmition.PROGRAM:
         data = struct.pack("<I", len(code))
         print(f"Data len is {len(code)}")
-        send_raw_data(serial_port, Transmition.PROGRAM, len(data), data, 10)
+        send_raw_data(serial_port, Transmition.PROGRAM, len(data), data, 1.4)
     if val == Transmition.RELEASE:
         send_raw_data(serial_port, Transmition.RELEASE, 0, bytes(), 0.4)
         print("Bye bye")

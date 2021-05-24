@@ -18,7 +18,6 @@
  */
 
 
-#define BUF_SIZE (16*16)
 #define ADDRESS 0x08004080
 
 #define MIN(X, Y) (((X) < (Y)) ? (X) : (Y))
@@ -93,31 +92,6 @@ static void MX_USART1_UART_Init(void);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
-HAL_StatusTypeDef storeBlock(uint8_t *buff, int n, uint32_t address) {
-	HAL_StatusTypeDef result = HAL_OK;
-	for (int i = 0; i < n; i += 4) {
-		HAL_StatusTypeDef currResult = HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD,
-				address + i, ((uint32_t*) buff)[i / 4]);
-		if (currResult != HAL_OK) {
-			result = currResult;
-			return result;
-		}
-	}
-	return result;
-}
-
-/**
- * @param address contains address where we store the main program
- */
-
-
-/**
- * @note Do not forget unlock memory before cleaning any data
- */
-
-
-
-
 uint8_t key[32] = {0};
 uint8_t iv[16] = {0};
 extern unsigned int symbol_1;
@@ -162,7 +136,7 @@ int main(void)
 	}
 
 	while(1){
-		uint8_t buff[2 * BUF_SIZE + CRC_SIZE];
+		uint8_t buff[3 * BUF_SIZE + CRC_SIZE];
 		HeaderPack header;
 		sendReadyToNextCommand(timeout);
 		receiveData( buff, &header, 3600000);
@@ -207,22 +181,22 @@ int main(void)
 				int from = i;
 				int to = MIN(i + BUF_SIZE, len);
 				askForNextBlock( from, to, timeout);
-				HAL_StatusTypeDef result = receiveData( buff, &header, timeout);
+				Status result = receiveData( buff, &header, timeout);
 				int c = 0;
 				c++;
 				decrypt(&ctx, (uint8_t*)buff, to - from);
-				if (result != HAL_OK) {
+				if (result != STATUS_OK) {
 					HAL_printf(
 							"An error occurred while transferring data: %d block",
 							i / BUF_SIZE);
 					return 2;
 				}
-				if (result == HAL_OK) {
+				if (result == STATUS_OK) {
 					HAL_printf("%d block was received", i / BUF_SIZE);
 				}
 
-				HAL_StatusTypeDef writeResult = storeBlock(buff, to - from, address + i);
-				if (writeResult == HAL_OK) {
+				Status writeResult = storeBlock(buff, to - from, address + i);
+				if (writeResult == STATUS_OK) {
 					HAL_printf("%d block was received and stored at 0x%x address",
 							i / BUF_SIZE, address + i);
 				} else {

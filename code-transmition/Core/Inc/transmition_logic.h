@@ -17,7 +17,7 @@
 #define TIMEOUT 8
 #define RELEASE 9
 #define SECRET_KEY 10
-
+#define BUF_SIZE (16*16)
 #define START_SESSION 0xAE
 
 #pragma pack(1)
@@ -40,9 +40,9 @@ uint32_t computeHeaderCrc(HeaderPack * header);
 void makeHeader(HeaderPack * header, uint32_t messageCode, uint32_t len);
 Status verifyDataHeader(HeaderPack * header);
 Status sendDataHeader( HeaderPack * header, uint32_t timeout);
-Status sendDataBody( HeaderPack * header, uint8_t *data, uint32_t timeout);
+Status sendFullPacket( HeaderPack * header, uint8_t *data, uint32_t timeout);
 Status receiveDataHeader(HeaderPack * header, uint32_t timeout);
-Status receiveDataBodyWithCRC(uint8_t * buff, HeaderPack * header, uint32_t * crc, uint32_t timeout);
+Status receiveFullPacket(uint8_t * buff, HeaderPack * header, uint32_t * crc,HeaderPack * outputHeader, uint32_t timeout);
 Status sendData(HeaderPack * header,
 		uint8_t *data, uint32_t timeout);
 Status sendAck(uint32_t num, uint32_t timeout);

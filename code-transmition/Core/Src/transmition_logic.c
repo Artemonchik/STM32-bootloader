@@ -10,15 +10,15 @@ uint32_t computeHeaderCrc(HeaderPack * header){
 void makeHeader(HeaderPack * header, uint32_t messageCode, uint32_t len){
 	header->messageCode = messageCode;
 	header->len = len;
-//	header->num = num;
+	header->num = packet_counter;
 	header->crc = computeHeaderCrc(header);
 }
 
 Status verifyDataHeader(HeaderPack * header){
 	if(computeHeaderCrc(header) != header->crc){
-		return HAL_ERROR;
+		return STATUS_ERROR;
 	}
-	return HAL_OK;
+	return STATUS_OK;
 }
 
 Status sendDataHeader(HeaderPack * header, uint32_t timeout){
@@ -27,71 +27,90 @@ Status sendDataHeader(HeaderPack * header, uint32_t timeout){
 	return res;
 }
 
-Status sendDataBody(HeaderPack * header, uint8_t *data, uint32_t timeout) {
-	if(header->len == 0 || data == NULL){
-		return 0;
-	}
+Status sendFullPacket(HeaderPack * header, uint8_t *data, uint32_t timeout) {
 	uint32_t crc = crc32((char*)data, header->len);
-	memcpy((void *)(data + header->len), (void *)&crc, sizeof(crc));
-	Status result = transmit(data, header->len + sizeof(crc), timeout);
+	computeHeaderCrc(header);
+	memmove((void *)(data + sizeof(HeaderPack)), (void *)&data[0], header->len);
+	memcpy((void *) data, (void *)header, sizeof(HeaderPack));
+	memcpy((void *)(data + header->len + sizeof(HeaderPack)), (void *)&crc, sizeof(crc));
+	Status result = transmit(data, header->len + sizeof(HeaderPack) + sizeof(crc), timeout);
+
 	return result;
 }
 
-
+// TODO: improve this
 Status receiveDataHeader(HeaderPack * header, uint32_t timeout){
+	memset(header, 0, sizeof(HeaderPack));
 	Status res = receive((uint8_t *) header, (uint16_t) sizeof(HeaderPack), timeout);
 	return res;
 }
 
-Status receiveDataBodyWithCRC(uint8_t * buff, HeaderPack * header, uint32_t * crc, uint32_t timeout){
-	Status res = receive( buff, header->len + sizeof(uint32_t), timeout);
-	*crc = *((uint32_t *)(&buff[header->len]));
+Status receiveFullPacket(uint8_t * buff, HeaderPack * header, uint32_t * crc, HeaderPack * outputHeader, uint32_t timeout){
+	memset(buff, 0, sizeof(HeaderPack) + header->len + sizeof(uint32_t));
+	Status res = receive(buff, sizeof(HeaderPack) + header->len + sizeof(uint32_t), timeout);
+	*outputHeader = *((HeaderPack *) buff);
+	*crc = *((uint32_t *)(&buff[header->len + sizeof(HeaderPack)]));
+	memmove(buff, buff + sizeof(HeaderPack), header->len + sizeof(uint32_t));
 	return res;
 }
 
 Status sendData(HeaderPack * header,
 		uint8_t *data, uint32_t timeout){
-	header->num = packet_counter++;
 	Status result = STATUS_ERROR;
-
 	while(result != STATUS_OK){
-		result = sendDataHeader( header, timeout);
+		result = sendDataHeader(header, timeout);
 		if(result != STATUS_OK)
 			continue;
 		HeaderPack receivedHeader = {0};
-		result = receiveDataHeader( &receivedHeader, timeout);
-		if(result != STATUS_OK)
-			continue;
-
-		if(verifyDataHeader(&receivedHeader) != STATUS_OK ||
-				receivedHeader.messageCode != ACK /*||
-				receivedHeader.num != header->num + 1*/){
+		result = receiveDataHeader(&receivedHeader, timeout);
+		if(verifyDataHeader(&receivedHeader) != STATUS_OK){
 			result = STATUS_ERROR;
 			continue;
 		}
+		// TODO: may be infinite cycle
+		if(/*packet_counter + 1 != receivedHeader.num || */ receivedHeader.messageCode != ACK){
+			if(receivedHeader.messageCode != ACK){
+				if(packet_counter + 1 == receivedHeader.num){
+//					continue;
+				}{
+					sendAck(packet_counter + 1, timeout);
+					continue;
+				}
+			}
+		//			continue;
+		}
+		result = STATUS_OK;
 	}
 	packet_counter++;
 	if(header->len == 0){
 		return STATUS_OK;
 	}
-
+	makeHeader(header, header->messageCode, header->len);
 	result = STATUS_ERROR;
 	while(result != STATUS_OK){
-		result = sendDataBody( header, data, timeout);
+		result = sendFullPacket(header, data, timeout);
 		if(result != STATUS_OK)
 			continue;
-		HeaderPack receivedHeader;
-		result = receiveDataHeader( &receivedHeader, timeout);
-		if(result != STATUS_OK)
-			continue;
-
-		if(verifyDataHeader(&receivedHeader) != STATUS_OK ||
-				receivedHeader.messageCode != ACK /*||
-				receivedHeader.num != header->num + 2*/){
+		HeaderPack receivedHeader = {0};
+		result = receiveDataHeader(&receivedHeader, timeout);
+		if(verifyDataHeader(&receivedHeader) != STATUS_OK){
 			result = STATUS_ERROR;
 			continue;
 		}
+		if(/*packet_counter + 1 != receivedHeader.num || */ receivedHeader.messageCode != ACK){
+			if(receivedHeader.messageCode != ACK){
+				if(packet_counter + 1 == receivedHeader.num){
+//					continue;
+				}{
+					sendAck(packet_counter + 1, timeout);
+					continue;
+				}
+			}
+//			continue;
+		}
+		result = STATUS_OK;
 	}
+	packet_counter++;
 	return result;
 }
 
@@ -107,17 +126,19 @@ Status receiveData(uint8_t * buff, HeaderPack * header, uint32_t timeout){
 	Status result = STATUS_ERROR;
 
 	while(result != STATUS_OK){
-		result = receiveDataHeader( header, timeout);
-		if(result != STATUS_OK || verifyDataHeader(header) != STATUS_OK/*|| header->num != packet_counter*/){
+		result = receiveDataHeader(header, timeout);
+		if(verifyDataHeader(header) != STATUS_OK){
 			result = STATUS_ERROR;
 			continue;
 		}
-		/*if(header->num < packet_counter){
-			sendAck( packet_counter, timeout);
-			result = HAL_ERROR;
+		if(packet_counter != header->num || header->messageCode == ACK){
+			if(header->messageCode != ACK){
+				sendAck(packet_counter, timeout);
+				continue;
+			}
 			continue;
-		}*/
-		sendAck( header->num + 1, timeout);
+		}
+		sendAck(packet_counter + 1, timeout);
 	}
 
 	packet_counter++;
@@ -126,26 +147,39 @@ Status receiveData(uint8_t * buff, HeaderPack * header, uint32_t timeout){
 	}
 	result = STATUS_ERROR;
 	while(result != STATUS_OK){
+		HeaderPack receivedHeader;
 		uint32_t crc;
-		result = receiveDataBodyWithCRC(buff, header, &crc, timeout);
-		if(result != STATUS_OK || crc32((char*)buff, header->len) != crc){
+		result = receiveFullPacket(buff, header, &crc, &receivedHeader, timeout);
+		if(verifyDataHeader(&receivedHeader) != STATUS_OK){
 			result = STATUS_ERROR;
 			continue;
 		}
-		sendAck( header->num + 2, timeout);
+		if(packet_counter != receivedHeader.num || receivedHeader.messageCode == ACK){
+			if(receivedHeader.messageCode != ACK){
+				sendAck(packet_counter, timeout);
+				continue;
+			}
+			continue;
+		}
+		if(crc32((char*)buff, header->len) != crc){
+			result = STATUS_ERROR;
+			continue;
+		}
+		sendAck(packet_counter + 1, timeout);
+		result = STATUS_OK;
 	}
 	packet_counter++;
-	return HAL_OK;
+	return STATUS_OK;
 }
 
-
+// TODO: исправить это дерьмо
 void askForNextBlock(uint32_t from, uint32_t to, uint32_t timeout){
-	Pair body;
-	body.from = from;
-	body.to = to;
+	Pair body[10];
+	body[0].from = from;
+	body[0].to = to;
 	HeaderPack header;
-	makeHeader(&header, REQUEST, sizeof(body) - sizeof(uint32_t));
-	sendData(&header, (uint8_t*)&body, timeout);
+	makeHeader(&header, REQUEST, sizeof(body[0]) - sizeof(uint32_t));
+	sendData(&header, (uint8_t*)&body[0], timeout);
 }
 void sendReadyToNextCommand(uint32_t timeout){
 	HeaderPack header;
