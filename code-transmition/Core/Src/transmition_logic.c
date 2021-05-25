@@ -69,7 +69,6 @@ Status sendData(HeaderPack * header,
 		}
 		// TODO: may be infinite cycle
 		if(packet_counter == receivedHeader.num + 1){
-			sendAck(packet_counter, timeout);
 			continue;
 		}
 		result = STATUS_OK;
@@ -91,7 +90,6 @@ Status sendData(HeaderPack * header,
 			continue;
 		}
 		if(packet_counter == receivedHeader.num + 1){
-			sendAck(packet_counter, timeout);
 			continue;
 		}
 		result = STATUS_OK;
@@ -142,8 +140,7 @@ Status receiveData(uint8_t * buff, HeaderPack * header, uint32_t timeout){
 			sendAck(packet_counter, timeout);
 			continue;
 		}
-
-		if(crc32((char*)buff, header->len) != crc){
+		if(receivedHeader.len == 0 || crc32((char*)buff, receivedHeader.len) != crc ){
 			result = STATUS_ERROR;
 			continue;
 		}

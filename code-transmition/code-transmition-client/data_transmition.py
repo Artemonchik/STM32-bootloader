@@ -42,7 +42,7 @@ def send_raw_data(serial_port, transmition_code, length, body, timeout=2.3):
             print("header crc not valid")
             continue
         if packet_counter == num + 1:
-            send_ack(serial_port, packet_counter)
+            # send_ack(serial_port, packet_counter)
             serial_port.reset_input_buffer()
             print("num are invalid")
             continue
@@ -64,7 +64,7 @@ def send_raw_data(serial_port, transmition_code, length, body, timeout=2.3):
             serial_port.reset_input_buffer()
             continue
         if packet_counter == num + 1:
-            send_ack(serial_port, packet_counter)
+            # send_ack(serial_port, packet_counter)
             serial_port.reset_input_buffer()
             print(num + 1)
             print("num are invalid")
@@ -124,9 +124,9 @@ def receive_raw_full_packet(serial_port, length, timeout=1.2):
         print(f"Received full body as expected")
         result = struct.unpack(f"<IIII{length}sI", raw_data)
         return FULL_PACKET, result
-    elif len(raw_data) == struct.calcsize(f"<IIII"):
+    elif len(raw_data) >= struct.calcsize(f"<IIII"):
         print(f"received header instead of body")
-        result = struct.unpack(f"<IIII", raw_data)
+        result = struct.unpack(f"<IIII", raw_data[:struct.calcsize(f"<IIII")])
         return HEADER, result
     else:
         print("unknown format received")
@@ -179,6 +179,8 @@ def receive_raw_data(serial_port):
         if packet_type == FULL_PACKET and not check_body_crc(body, body_crc):
             serial_port.reset_input_buffer()
             print("wrong crc body")
+            continue
+        if packet_type == HEADER:
             continue
         send_ack(serial_port, packet_counter + 1)
         packet_counter += 1
