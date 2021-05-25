@@ -17,12 +17,13 @@ namespace Flasher
 
     public partial class Form1 : Form
     {
-        string file_name;
-        string port_name;
+        string fileName;
+        string portName;
         int baudrate;
         BootloaderFile bff;
         const int RESTART_FILE_PARAMS = 1;
         const int RESTART_SUCCESS_PARAMS = 2;
+        SerialPort serialPort;
         public Form1()
         {
             InitializeComponent();
@@ -37,7 +38,7 @@ namespace Flasher
             switch (scenario) {
                 case (RESTART_FILE_PARAMS):
                     textBox1.Text = null;
-                    file_name = null;
+                    fileName = null;
                     richTextBox1.Text = null;
                     progressBar1.Value = 0;
                     break;
@@ -56,11 +57,11 @@ namespace Flasher
             if (ofd.ShowDialog() == DialogResult.OK)
             {
                 textBox1.Text = ofd.SafeFileName;
-                file_name = ofd.FileName;
+                fileName = ofd.FileName;
                 try
                 {
-                    bff = new BootloaderFile(file_name);
-                    //string result = System.Text.Encoding.UTF8.GetString(bff.IV);
+                    bff = new BootloaderFile(fileName);
+                    string result = System.Text.Encoding.UTF8.GetString(bff.IV);
                     //Console.WriteLine($"{ bff.ToFancyString()} IV: {result} ");
                     richTextBox1.Text = bff.ToFancyString();
                 }
@@ -81,7 +82,7 @@ namespace Flasher
             }
             else
             {
-                port_name = (string)comboBox1.SelectedItem;
+                portName = (string)comboBox1.SelectedItem;
                 button1.Enabled = true;
             }
         }
@@ -93,7 +94,7 @@ namespace Flasher
             try
             {
                 //var bin =  ReadFile(file_name);
-                new Client().Main(port_name, baudrate, Constants.DataBits, StopBits.One, bff.Data, this);
+                new Client().Upload( serialPort, baudrate, bff.Data, this);
             }
             catch (Exception ex)
             {
@@ -111,24 +112,10 @@ namespace Flasher
             baudrate = int.Parse((string)comboBox2.SelectedItem);
         }
 
-        /*
-        private byte[] ReadFile(string fname)
-        {
-            byte[] bin;
-
-            var s = new FileStream(fname, FileMode.Open, FileAccess.Read);
-            var s = new
-            bin = new byte[s.Length];
-            s.Read(bin, 0, bin.Length);
-            return bin;
-        }
-        */
         private void UpdateStatus(bool ding, string text)
         {
-            /* play a system sound? */
             if (ding)
             {
-                /* ^^ ding! */
                 SystemSounds.Exclamation.Play();
             }
             MessageBox.Show(text, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
@@ -150,5 +137,23 @@ namespace Flasher
             MessageBox.Show("Created by Patrushev Borya," + Environment.NewLine + "Vasilev Pavel and Tarasov Artem", "Creators", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
 
+        private void button3_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                serialPort = Client.Connect(portName, Constants.DataBits, StopBits.One);
+            }
+            catch (Exception ex)
+            {
+                /* set message */
+                UpdateStatus(true, ex.Message);
+            }
+        }
+
+        private void button4_Click(object sender, EventArgs e)
+        {
+            Client.Disconnect(serialPort);
+
+        }
     }
 }
