@@ -41,15 +41,11 @@ def send_raw_data(serial_port, transmition_code, length, body, timeout=2.3):
             serial_port.reset_input_buffer()
             print("header crc not valid")
             continue
-        if packet_counter + 1 != num or code != Transmition.ACK:
+        if packet_counter == num + 1:
+            send_ack(serial_port, packet_counter)
             serial_port.reset_input_buffer()
-            print("either num or code are invalid when send header")
-            if code != Transmition.ACK:
-                print("code is not ack when send data header")
-                if packet_counter + 1 != num:
-                    print(f"resend ack {packet_counter + 1} in data header")
-                    # send_ack(serial_port, packet_counter + 1)
-            # continue
+            print("num are invalid")
+            continue
         break
     packet_counter += 1
     if length == 0:
@@ -67,17 +63,12 @@ def send_raw_data(serial_port, transmition_code, length, body, timeout=2.3):
             print("when receiving full packege header crc is not valid")
             serial_port.reset_input_buffer()
             continue
-        if code != Transmition.ACK:
-            print("transmition code are invalid when send full")
+        if packet_counter == num + 1:
+            send_ack(serial_port, packet_counter)
             serial_port.reset_input_buffer()
-            if packet_counter + 1 == num:
-                pass
-            else:
-                print(f"resending the ack {packet_counter + 1}")
-                send_ack(serial_port, packet_counter + 1)
-            # continue
-        if not check_body_crc(body, crc):
-            print("body crc is not valid")
+            print(num + 1)
+            print("num are invalid")
+            continue
         break
     packet_counter += 1
     return True
@@ -121,18 +112,29 @@ def check_body_crc(body, crc):
     return zlib.crc32(body) == crc
 
 
+HEADER = 0
+FULL_PACKET = 1
+ERROR = 3
+
+
 def receive_raw_full_packet(serial_port, length, timeout=1.2):
     serial_port.timeout = timeout
     raw_data = serial_port.read(4 + 4 + 4 + 4 + length + 4)
-    print(f"Received {raw_data}")
-    result = struct.unpack(f"<IIII{length}sI", raw_data)
-    return result
+    if len(raw_data) == struct.calcsize(f"<IIII{length}sI"):
+        print(f"Received full body as expected")
+        result = struct.unpack(f"<IIII{length}sI", raw_data)
+        return FULL_PACKET, result
+    elif len(raw_data) == struct.calcsize(f"<IIII"):
+        print(f"received header instead of body")
+        result = struct.unpack(f"<IIII", raw_data)
+        return HEADER, result
+    else:
+        print("unknown format received")
+        return ERROR, raw_data
 
 
 def receive_raw_data(serial_port):
     global packet_counter
-    body = bytes()
-    crc = 0
     while True:
         try:
             code, length, num, crc = header = receive_data_header(serial_port)
@@ -144,51 +146,37 @@ def receive_raw_data(serial_port):
             serial_port.reset_input_buffer()
             print("wrong crc header")
             continue
-        if num != packet_counter or code == Transmition.ACK:
-            print("either num of code are invalid when receive")
-            print(packet_counter)
+        if packet_counter == num + 1:
             serial_port.reset_input_buffer()
-            if code != Transmition.ACK:
-                print("resend ack")
-                # continue
-            else:
-                send_ack(serial_port, packet_counter)
+            print("num are invalid")
+            send_ack(serial_port, packet_counter)
+            continue
         send_ack(serial_port, packet_counter + 1)
         packet_counter += 1
         if length == 0:
             return code, length, bytes([])
         break
     while True:
-        body_crc = 0
-        try:
-            l = length
-            raw_data = serial_port.read(4 + 4 + 4 + 4 + length + 4)
-            result = struct.unpack(f"<IIII{length}sI", raw_data)
-            code, length, num, crc, body, body_crc = result
-            header = code, length, num, crc
-        except:
+        packet_type, data = receive_raw_full_packet(serial_port, length)
+        if packet_type == FULL_PACKET:
+            code, length, num, crc, body, body_crc = data
+        elif packet_type == HEADER:
             serial_port.reset_input_buffer()
-            try:
-                result = struct.unpack(f"<IIII", raw_data)
-                code, length, num, crc = header = result
-                print("get header instead of full packet")
-            except:
-                serial_port.reset_input_buffer()
-                print("wrong format body")
-                continue
+            code, length, num, crc = data
+        else:
+            print(data)
+            serial_port.reset_input_buffer()
+            continue
+        header = code, length, num, crc
         if not check_header_crc(header):
             serial_port.reset_input_buffer()
             continue
-        if num != packet_counter or code == Transmition.ACK:
-            print("either num or code are invalid when receive full")
+        if packet_counter == num + 1:
             serial_port.reset_input_buffer()
-            if code != Transmition.ACK:
-                print("resend ack")
-                send_ack(serial_port, packet_counter)
-                pass
-            else:
-                continue
-        if not check_body_crc(body, body_crc):
+            print("num are invalid")
+            send_ack(serial_port, packet_counter)
+            continue
+        if packet_type == FULL_PACKET and not check_body_crc(body, body_crc):
             serial_port.reset_input_buffer()
             print("wrong crc body")
             continue

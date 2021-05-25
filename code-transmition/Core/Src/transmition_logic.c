@@ -68,16 +68,9 @@ Status sendData(HeaderPack * header,
 			continue;
 		}
 		// TODO: may be infinite cycle
-		if(/*packet_counter + 1 != receivedHeader.num || */ receivedHeader.messageCode != ACK){
-			if(receivedHeader.messageCode != ACK){
-				if(packet_counter + 1 == receivedHeader.num){
-//					continue;
-				}{
-					sendAck(packet_counter + 1, timeout);
-					continue;
-				}
-			}
-		//			continue;
+		if(packet_counter == receivedHeader.num + 1){
+			sendAck(packet_counter, timeout);
+			continue;
 		}
 		result = STATUS_OK;
 	}
@@ -97,16 +90,9 @@ Status sendData(HeaderPack * header,
 			result = STATUS_ERROR;
 			continue;
 		}
-		if(/*packet_counter + 1 != receivedHeader.num || */ receivedHeader.messageCode != ACK){
-			if(receivedHeader.messageCode != ACK){
-				if(packet_counter + 1 == receivedHeader.num){
-//					continue;
-				}{
-					sendAck(packet_counter + 1, timeout);
-					continue;
-				}
-			}
-//			continue;
+		if(packet_counter == receivedHeader.num + 1){
+			sendAck(packet_counter, timeout);
+			continue;
 		}
 		result = STATUS_OK;
 	}
@@ -131,14 +117,12 @@ Status receiveData(uint8_t * buff, HeaderPack * header, uint32_t timeout){
 			result = STATUS_ERROR;
 			continue;
 		}
-		if(packet_counter != header->num || header->messageCode == ACK){
-			if(header->messageCode != ACK){
-				sendAck(packet_counter, timeout);
-				continue;
-			}
+		if(packet_counter == header->num + 1){
+			sendAck(packet_counter, timeout);
 			continue;
 		}
 		sendAck(packet_counter + 1, timeout);
+		result = STATUS_OK;
 	}
 
 	packet_counter++;
@@ -154,13 +138,11 @@ Status receiveData(uint8_t * buff, HeaderPack * header, uint32_t timeout){
 			result = STATUS_ERROR;
 			continue;
 		}
-		if(packet_counter != receivedHeader.num || receivedHeader.messageCode == ACK){
-			if(receivedHeader.messageCode != ACK){
-				sendAck(packet_counter, timeout);
-				continue;
-			}
+		if(packet_counter == receivedHeader.num + 1){
+			sendAck(packet_counter, timeout);
 			continue;
 		}
+
 		if(crc32((char*)buff, header->len) != crc){
 			result = STATUS_ERROR;
 			continue;
