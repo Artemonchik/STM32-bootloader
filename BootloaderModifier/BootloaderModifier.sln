@@ -1,8 +1,5 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 16
-VisualStudioVersion = 16.0.30309.148
-MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BootloaderModifier", "BootloaderModifier\BootloaderModifier.csproj", "{95397999-E803-4D8B-A98F-38B064D11297}"
 EndProject
 Global
@@ -15,11 +12,5 @@ Global
 		{95397999-E803-4D8B-A98F-38B064D11297}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{95397999-E803-4D8B-A98F-38B064D11297}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{95397999-E803-4D8B-A98F-38B064D11297}.Release|Any CPU.Build.0 = Release|Any CPU
-	EndGlobalSection
-	GlobalSection(SolutionProperties) = preSolution
-		HideSolutionNode = FALSE
-	EndGlobalSection
-	GlobalSection(ExtensibilityGlobals) = postSolution
-		SolutionGuid = {0413B759-3196-4A8C-B246-ACA39C68CA89}
 	EndGlobalSection
 EndGlobal
