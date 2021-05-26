@@ -1,17 +1,14 @@
 ﻿using System;
 using System.IO;
 using System.Collections.Generic;
+using System.Linq;
 using BootloaderFileFormat;
-using System.Security.Cryptography;
 using CommandLine;
 
 namespace BootloaderFileGenerator
 {
     class Program
     {
-        private static byte[] _fileiv;
-
-        
         /// <summary>
         /// main :)
         /// </summary>
@@ -20,7 +17,9 @@ namespace BootloaderFileGenerator
         /// args[1] - encryption key path (binary) <br/>
         /// args[2] - manufacturer name <br/>
         /// args[3] - firmware version (e.g. 1.3.3.7) <br/>
-        /// args[4] - output path <br/>
+        /// args[4] - custom data start address
+        /// args[5] - custom data end address
+        /// args[6] - output path <br/>
         /// </param>
         private static void Main(string[] args)
         {
@@ -35,72 +34,88 @@ namespace BootloaderFileGenerator
             var manufacturerName = opts.ManufacturerName;
             var version = opts.Version;
             var outputFilePath = opts.OutputFilePath;
-            
-            var binaryReader =
-                new BinaryReader(new FileStream(inputFilePath, FileMode.Open, FileAccess.Read, FileShare.Read));
-            
-            var rawFirmwareBinaryList = new List<byte>();
-            while (true)
+            uint startAddr = 0;
+            uint endAddr = 0;
+            // parse startAddr and endAddr
+            try
             {
-                byte tempByte;
-                try
-                {
-                    tempByte = binaryReader.ReadByte();
-                }
-                catch (EndOfStreamException)
-                {
-                    break;
-                }
-
-                rawFirmwareBinaryList.Add(tempByte);
+                startAddr = Convert.ToUInt32(opts.StartAddr, 16);
             }
+            catch (FormatException)
+            {
+                startAddr = Convert.ToUInt32(opts.StartAddr);
+            }
+            try
+            {
+                endAddr = Convert.ToUInt32(opts.EndAddr, 16);
+            }
+            catch (FormatException)
+            {
+                endAddr = Convert.ToUInt32(opts.EndAddr);
+            }
+            
+            // read firmware binary
+            var rawFirmwareBinaryList = new List<byte>();
 
-            var key = new BinaryReader(new FileStream(keyFilePath, FileMode.Open, FileAccess.Read, FileShare.Read)).ReadBytes(32);
-            var encryptedBinary =  Encrypt(rawFirmwareBinaryList.ToArray(), key);
-
-            var file = new BootloaderFile {Data = encryptedBinary, ManufacturerName = manufacturerName};
+            using (var binaryReader =
+                new BinaryReader(new FileStream(inputFilePath, FileMode.Open, FileAccess.Read, FileShare.Read)))
+            {
+                while (true)
+                {
+                    byte tempByte;
+                    try
+                    {
+                        tempByte = binaryReader.ReadByte();
+                    }
+                    catch (EndOfStreamException)
+                    {
+                        break;
+                    }
+                    rawFirmwareBinaryList.Add(tempByte);
+                }
+            }
+            
+            // calculate CRC32
+            var dataCrc = Utilities.CalculateCrc32(rawFirmwareBinaryList.ToArray());
+            var addrCrc = Utilities.CalculateCrc32(
+                BitConverter.GetBytes(startAddr)
+                    .Concat(BitConverter.GetBytes(endAddr))
+                    .ToArray()
+                );
+            var firstBlock = 
+                BitConverter.GetBytes(addrCrc)
+                    .Concat(BitConverter.GetBytes(startAddr))
+                    .Concat(BitConverter.GetBytes(endAddr))
+                    .Concat(BitConverter.GetBytes(dataCrc));
+            // read key
+            byte[] key;
+            using (var binaryReader = new BinaryReader(new FileStream(keyFilePath, FileMode.Open, FileAccess.Read, FileShare.Read)))
+            {
+                key = binaryReader.ReadBytes(32);
+            }
+            // create BootloaderFile
+            var file = new BootloaderFile();
+            // encrypt
+            var encryptedBinary =  Utilities.Encrypt(
+                firstBlock.Concat(rawFirmwareBinaryList).ToArray(), 
+                key,
+                ref file
+            );
+            
+            file.Data = encryptedBinary.Skip(16).ToArray();
+            file.ManufacturerName = manufacturerName;
+            file.FirstBlock = encryptedBinary.Take(16).ToArray();
+            // parse version
             var splitVersion = version.Split(".");
             for (var i = 0; i < 4; i++)
             {
                 file.FirmwareVersion[i] = ushort.Parse(splitVersion[i]);
             }
 
-            file.IV = _fileiv;
             file.WriteBootloaderFile(outputFilePath);
             Console.WriteLine(file.ToFancyString());
+            Console.Write("IV: ");
         }
-        
-        private static byte[] Encrypt(IReadOnlyList<byte> arr, byte[] key)
-        {
-            var padArr = new byte[arr.Count + 16 - arr.Count % 16];
-            var temp = new byte[padArr.Length];
-            
-            for (var i = 0; i < arr.Count; i++)
-            {
-                padArr[i] = arr[i];
-            }
-
-            for (var i = arr.Count; i < padArr.Length; i++)
-            {
-                padArr[i] = 0xFF;
-            }
-            var myCrypt = Aes.Create();
-            myCrypt.KeySize = 256;
-            myCrypt.BlockSize = 128;
-            myCrypt.Key = key;
-            myCrypt.Padding = PaddingMode.None;
-            myCrypt.GenerateIV();
-            _fileiv = myCrypt.IV;
-            
-            var encryptor = myCrypt.CreateEncryptor();
-            
-            for (var i = 0; i < padArr.Length; i += 16)
-            {
-                encryptor.TransformBlock(padArr, i, 16, temp, i);
-            }
-            return temp;
-        }
-        
     }
 
     internal class Options
@@ -132,8 +147,22 @@ namespace BootloaderFileGenerator
             Required = true
         )]
         public string Version { get; set; }
-        
+
         [Value(4, 
+            Default = null, 
+            HelpText = "Custom data start address",
+            Required = true
+        )]
+        public string StartAddr  { get; set; }
+        
+        [Value(5, 
+            Default = null, 
+            HelpText = "Custom data end address",
+            Required = true
+        )]
+        public string EndAddr  { get; set; }
+        
+        [Value(6, 
             Default = null, 
             HelpText = "Output file path",
             Required = true
