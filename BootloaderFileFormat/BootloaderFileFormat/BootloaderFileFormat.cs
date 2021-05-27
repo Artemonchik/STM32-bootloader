@@ -166,6 +166,58 @@ namespace BootloaderFileFormat
             stringBuilder.AppendLine("B");
             return stringBuilder.ToString();
         }
+
+        public byte[] GetMetadataAsByteArray()
+        {
+            byte[] aZero = {0};
+            var arr = Array.Empty<byte>();
+            arr = arr
+                .Concat(HeaderBytes)
+                .Concat(Encoding.ASCII.GetBytes(ManufacturerName))
+                .Concat(aZero)
+                .Concat(BitConverter.GetBytes(FirmwareVersion[0]))
+                .Concat(BitConverter.GetBytes(FirmwareVersion[1]))
+                .Concat(BitConverter.GetBytes(FirmwareVersion[2]))
+                .Concat(BitConverter.GetBytes(FirmwareVersion[3]))
+                .Concat(BitConverter.GetBytes(UnixCreationTime))
+                .Concat(DataBytes)
+                .Concat(IV)
+                .Concat(BitConverter.GetBytes(Size))
+                .ToArray();
+            return arr;
+        }
+
+        public void GetMetadataFromByteArray(byte[] arr)
+        {
+            using var reader = new BinaryReader(new MemoryStream(arr));
+            if (!reader.ReadBytes(6).SequenceEqual(HeaderBytes))
+            {
+                throw new FormatException();
+            }
+
+            byte temp;
+            var temparr = Array.Empty<byte>();
+            while ((temp = reader.ReadByte()) != 0)
+            {
+                temparr = temparr.Append(temp).ToArray();
+            }
+
+            ManufacturerName = Encoding.ASCII.GetString(temparr);
+            for (var i = 0; i < 4; i++)
+            {
+                FirmwareVersion[i] = reader.ReadUInt16();
+            }
+
+            UnixCreationTime = reader.ReadInt64();
+
+            if (!reader.ReadBytes(4).SequenceEqual(DataBytes))
+            {
+                throw new FormatException();
+            }
+
+            IV = reader.ReadBytes(16);
+            Size = reader.ReadUInt16();
+        }
     }
 
     public static class Utilities

@@ -1,6 +1,7 @@
 ﻿using System;
 using System.IO;
 using System.Collections.Generic;
+using System.Data;
 using System.Linq;
 using BootloaderFileFormat;
 using CommandLine;
@@ -36,6 +37,12 @@ namespace BootloaderFileGenerator
             var outputFilePath = opts.OutputFilePath;
             uint startAddr = 0;
             uint endAddr = 0;
+            // check ManufacturerName length
+            if (manufacturerName.Length > 31)
+            {
+                throw new ConstraintException("Manufacturer name is too long (max: 31)");
+            }
+            
             // parse startAddr and endAddr
             try
             {
@@ -73,6 +80,11 @@ namespace BootloaderFileGenerator
                     }
                     rawFirmwareBinaryList.Add(tempByte);
                 }
+            }
+
+            while (rawFirmwareBinaryList.Count % 16 != 0)
+            {
+                rawFirmwareBinaryList.Add(0);
             }
             
             // calculate CRC32
