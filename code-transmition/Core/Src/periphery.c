@@ -62,6 +62,7 @@ Status storeBlock(uint8_t *buff, int n, uint32_t address) {
 	}
 	return __HAL_to_Status(result);
 }
+
 Status transmit(uint8_t * buff, size_t n, uint32_t timeout){
 	HAL_StatusTypeDef res = HAL_UART_Transmit(&huart1, buff, (size_t) n, timeout);
 	return __HAL_to_Status(res);

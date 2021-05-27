@@ -157,7 +157,8 @@ def receive_raw_data(serial_port):
             return code, length, bytes([])
         break
     while True:
-        packet_type, data = receive_raw_full_packet(serial_port, length)
+        l = length
+        packet_type, data = receive_raw_full_packet(serial_port, l)
         if packet_type == FULL_PACKET:
             code, length, num, crc, body, body_crc = data
         elif packet_type == HEADER:
@@ -213,3 +214,4 @@ class Transmition:
     TIMEOUT = 8
     RELEASE = 9
     SECRET_KEY = 10
+    IV = 11

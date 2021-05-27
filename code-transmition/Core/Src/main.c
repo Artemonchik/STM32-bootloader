@@ -19,7 +19,7 @@
 
 
 #define ADDRESS 0x08004080
-
+#define META_INFO_ADDRESS (ADDRESS - 0x80)
 #define MIN(X, Y) (((X) < (Y)) ? (X) : (Y))
 //#define HAL_FLASH_MODULE_ENABLED
 //#define FLASH_BASE            0x08000000UL /*!< FLASH base address in the alias region */
@@ -37,32 +37,17 @@
 #include "stdio.h"
 #include "aes.h"
 #include "string.h"
-//#include "stm32f3xx_hal_flash.h"
-//#include "stm32f3xx_hal_flash_ex.h"
 #include "stdarg.h"
 #include "transmition_logic.h"
 #include "encryption.h"
 #include "checksum.h"
 #include "periphery.h"
-//#include "string.h"
+#include "meta_info.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
-#pragma pack(1)
-typedef struct FirmwareVersion_s{
-	char companyName[10];
-	uint16_t version[4];
-	uint64_t date;
-	uint32_t size;
-} FirmwareVersion;
 
-
-
-#pragma pack(1)
-typedef struct BootloaderInfo_s{
-	uint8_t key[32];
-} BootloaderInfo;
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
@@ -95,7 +80,28 @@ static void MX_USART1_UART_Init(void);
 uint8_t key[32] = {0};
 uint8_t iv[16] = {0};
 extern unsigned int symbol_1;
+BootloaderMetaInfo info = {0};
+struct AES_ctx ctx;
 
+void lock_flash(){
+	if((READ_BIT(FLASH->CR, FLASH_CR_LOCK)) != RESET){
+		WRITE_REG(FLASH->KEYR, FLASH_KEY1);
+		WRITE_REG(FLASH->KEYR, FLASH_KEY2);
+	}
+	if((READ_BIT(FLASH->CR, FLASH_CR_OPTWRE)) == RESET){
+	    WRITE_REG(FLASH->OPTKEYR, FLASH_OPTKEY1);
+	    WRITE_REG(FLASH->OPTKEYR, FLASH_OPTKEY2);
+	}
+	FLASH->CR |= FLASH_CR_OPTER;
+	FLASH->CR |= FLASH_CR_STRT;
+	FLASH->CR &= ~FLASH_CR_OPTER;
+	SET_BIT(FLASH->CR, FLASH_CR_OPTPG);
+	WRITE_REG(OB->RDP, 0xBB);
+	CLEAR_BIT(FLASH->CR, FLASH_CR_OPTPG);
+	SET_BIT(FLASH->CR, FLASH_CR_OBL_LAUNCH);
+	CLEAR_BIT(FLASH->CR, FLASH_CR_OPTWRE);
+	SET_BIT(FLASH->CR, FLASH_CR_LOCK);
+}
 /* USER CODE END 0 */
 
 /**
@@ -105,8 +111,11 @@ extern unsigned int symbol_1;
 int main(void)
 {
   /* USER CODE BEGIN 1 */
-	memcpy((void *) &key[0], (void *) &symbol_1, sizeof(uint8_t) * 32);
-  /* USER CODE END 1 */
+	readMetaInfo(&info, (void *) META_INFO_ADDRESS);
+	readKey(key, &symbol_1);
+	AES_init_ctx_iv(&ctx, key, info.info.iv);
+
+	/* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
 
@@ -139,7 +148,7 @@ int main(void)
 		uint8_t buff[3 * BUF_SIZE + CRC_SIZE];
 		HeaderPack header;
 		sendReadyToNextCommand(timeout);
-		receiveData( buff, &header, 3600000);
+		receiveData(buff, &header, 3600000);
 		if(header.messageCode == BAUDRATE){
 				uint32_t baudrate = *(uint32_t*)buff;
 				changeSpeed( baudrate);
@@ -153,15 +162,14 @@ int main(void)
 			bootloader_jump_to_user_app(address);
 			break;
 		}
-		if(header.messageCode == SECRET_KEY){
-			memcpy(buff, key, KEY_SIZE);
-			makeHeader(&header, SECRET_KEY, KEY_SIZE);
-			sendData( &header, buff, timeout);
+		if(header.messageCode == FIRMWARE_INFO){
+			memcpy((void *)&info, (void*)&buff[0], sizeof(Firmware_info));
+			AES_init_ctx_iv(&ctx, key, info.info.iv);
+			HAL_printf("OK, iv is: %s", info.info.iv);
+		}if(header.messageCode == ADDRESSES_INFO){
+
 		}
 		if (header.messageCode == PROGRAM) {
-			struct AES_ctx ctx;
-			memcpy((void *) &iv[0], (void *)& symbol_1, sizeof(uint8_t) * 16);
-			AES_init_ctx_iv(&ctx, key, iv);
 			uint32_t len = *(uint32_t*)buff;
 			HAL_printf("Program is pending with len %d", len);
 			if (HAL_FLASH_Unlock() == HAL_OK) {
@@ -169,21 +177,20 @@ int main(void)
 			} else {
 				HAL_printf("Unlocking failed");
 			};
-			HAL_StatusTypeDef result = erasePages(address, len);
-			if (result != HAL_OK) {
+			Status result = erasePages(address, len);
+			if (result != STATUS_OK) {
 				HAL_printf(
 						"An error occurred while erasing pages started with the address",
 						address);
 			}else {
 				HAL_printf("Pages was erased successfully");
 			}
+			storeBlock((void *)&info, sizeof(BootloaderMetaInfo),  META_INFO_ADDRESS);
 			for (uint32_t i = 0; i < len; i += BUF_SIZE) {
 				int from = i;
 				int to = MIN(i + BUF_SIZE, len);
 				askForNextBlock( from, to, timeout);
 				Status result = receiveData( buff, &header, timeout);
-				int c = 0;
-				c++;
 				decrypt(&ctx, (uint8_t*)buff, to - from);
 				if (result != STATUS_OK) {
 					HAL_printf(

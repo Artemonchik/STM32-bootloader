@@ -17,6 +17,8 @@
 #define TIMEOUT 8
 #define RELEASE 9
 #define SECRET_KEY 10
+#define FIRMWARE_INFO 11
+#define ADDRESSES_INFO 12
 #define BUF_SIZE (16*16)
 #define START_SESSION 0xAE
 

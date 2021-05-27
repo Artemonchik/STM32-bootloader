@@ -23,7 +23,7 @@ with open(code_path, 'rb') as code_file:
 # code = bytes(code)
 key = b"11145678901234567890123456789012"
 print(f"key: {key}")
-iv = key
+iv = b"susususususususu"
 serial_port.reset_input_buffer()
 # add zero padding
 while len(code) % 16 != 0:
@@ -55,7 +55,7 @@ while 1:
         send_raw_data(serial_port, Transmition.PROGRAM, len(code[f:t]), code[f:t], timeout=1)
         continue
     else:
-        # print(f"Data received: {data}")
+        print(f"Data received: {data}")
         continue
     val = int(input("Enter what you want to do: "))
     if val == Transmition.BAUDRATE:
@@ -77,5 +77,9 @@ while 1:
         send_raw_data(serial_port, Transmition.RELEASE, 0, bytes(), 0.4)
         print("Bye bye")
         break
-    if val == Transmition.SECRET_KEY:
-        send_raw_data(serial_port, Transmition.SECRET_KEY, 0, bytes(1))
+    if val == Transmition.IV:
+        b = lambda x: x.encode(encoding="ascii")
+        data = struct.pack("<6s32s8sQ4s16sL", b("HEADER"), b("Mew mew mew we are the cats"), b("05.04.03"), 23333333,
+                           b("DATA"), iv, len(code))
+        print(data)
+        send_raw_data(serial_port, Transmition.IV, len(data), data)
