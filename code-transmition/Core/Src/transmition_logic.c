@@ -129,8 +129,9 @@ Status receiveData(uint8_t * buff, HeaderPack * header, uint32_t timeout){
 	}
 	result = STATUS_ERROR;
 	while(result != STATUS_OK){
-		HeaderPack receivedHeader;
+		HeaderPack receivedHeader = {0};
 		uint32_t crc;
+		//TODO: remove this ssshhhiiittt
 		result = receiveFullPacket(buff, header, &crc, &receivedHeader, timeout);
 		if(verifyDataHeader(&receivedHeader) != STATUS_OK){
 			result = STATUS_ERROR;

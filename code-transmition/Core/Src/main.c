@@ -17,8 +17,12 @@
  ******************************************************************************
  */
 
+#if defined(DEBUG)
+	#define ADDRESS 0x08006080
+#else
+	#define ADDRESS 0x08004080
+#endif
 
-#define ADDRESS 0x08004080
 #define META_INFO_ADDRESS (ADDRESS - 0x80)
 #define MIN(X, Y) (((X) < (Y)) ? (X) : (Y))
 //#define HAL_FLASH_MODULE_ENABLED
@@ -78,29 +82,11 @@ static void MX_USART1_UART_Init(void);
 /* USER CODE BEGIN 0 */
 
 uint8_t key[32] = {0};
-uint8_t iv[16] = {0};
 extern unsigned int symbol_1;
 BootloaderMetaInfo info = {0};
 struct AES_ctx ctx;
-
-void lock_flash(){
-	if((READ_BIT(FLASH->CR, FLASH_CR_LOCK)) != RESET){
-		WRITE_REG(FLASH->KEYR, FLASH_KEY1);
-		WRITE_REG(FLASH->KEYR, FLASH_KEY2);
-	}
-	if((READ_BIT(FLASH->CR, FLASH_CR_OPTWRE)) == RESET){
-	    WRITE_REG(FLASH->OPTKEYR, FLASH_OPTKEY1);
-	    WRITE_REG(FLASH->OPTKEYR, FLASH_OPTKEY2);
-	}
-	FLASH->CR |= FLASH_CR_OPTER;
-	FLASH->CR |= FLASH_CR_STRT;
-	FLASH->CR &= ~FLASH_CR_OPTER;
-	SET_BIT(FLASH->CR, FLASH_CR_OPTPG);
-	WRITE_REG(OB->RDP, 0xBB);
-	CLEAR_BIT(FLASH->CR, FLASH_CR_OPTPG);
-	SET_BIT(FLASH->CR, FLASH_CR_OBL_LAUNCH);
-	CLEAR_BIT(FLASH->CR, FLASH_CR_OPTWRE);
-	SET_BIT(FLASH->CR, FLASH_CR_LOCK);
+void loop(){
+	while(1);
 }
 /* USER CODE END 0 */
 
@@ -141,6 +127,9 @@ int main(void)
 	uint32_t timeout = 3600;
 	HAL_StatusTypeDef res = startSession();
 	if (res != HAL_OK) {
+		if(!validate_program((uint8_t *) ADDRESS, info.info.size, info.program_crc)){
+			loop();
+		}
 		bootloader_jump_to_user_app(address);
 	}
 
@@ -148,7 +137,7 @@ int main(void)
 		uint8_t buff[3 * BUF_SIZE + CRC_SIZE];
 		HeaderPack header;
 		sendReadyToNextCommand(timeout);
-		receiveData(buff, &header, 3600000);
+		receiveData(buff, &header, 36000000);
 		if(header.messageCode == BAUDRATE){
 				uint32_t baudrate = *(uint32_t*)buff;
 				changeSpeed( baudrate);
@@ -166,8 +155,44 @@ int main(void)
 			memcpy((void *)&info, (void*)&buff[0], sizeof(Firmware_info));
 			AES_init_ctx_iv(&ctx, key, info.info.iv);
 			HAL_printf("OK, iv is: %s", info.info.iv);
-		}if(header.messageCode == ADDRESSES_INFO){
-
+		}if(header.messageCode == FIRMWARE_INFO_UPLOAD){
+			makeHeader(&header, FIRMWARE_INFO_UPLOAD, sizeof(info.info));
+			memcpy(buff, (void *)&info.info, sizeof(info.info));
+			sendData(&header, buff, timeout);
+		}if(header.messageCode == UPLOAD_CODE || header.messageCode == UPLOAD_DATA){
+			int isCode = header.messageCode == UPLOAD_CODE;
+			int code = isCode ? UPLOAD_CODE : UPLOAD_DATA;
+			struct AES_ctx upload_ctx;
+			AES_init_ctx_iv(&upload_ctx, key, info.info.iv);
+			if(isCode){
+				makeHeader(&header, code, sizeof(uint32_t) * 4);
+				memcpy(buff, (void *)&info.addresses, sizeof(uint32_t) * 4);
+				encrypt(&upload_ctx, buff, sizeof(uint32_t) * 4);
+				sendData(&header, buff, timeout);
+			}
+			uint32_t startAddress = isCode ? ADDRESS : info.addresses.from;
+			uint32_t endAddress = isCode ? (ADDRESS + info.info.size) : info.addresses.to;
+			for(int i = 0; i < endAddress - startAddress; i += BUF_SIZE){
+				code = isCode ? PROGRAM : DATA;
+				int from = i;
+				int to = MIN(i + BUF_SIZE, endAddress - startAddress);
+				makeHeader(&header, PROGRAM, to - from);
+				memcpy(buff, (void *) (startAddress + i), to - from);
+				encrypt(&upload_ctx, buff, to - from);
+				sendData(&header, buff, timeout);
+			}
+			makeHeader(&header, END_OF_UPLOAD, 0);
+			sendData(&header, buff, timeout);
+		}
+		if(header.messageCode == ADDRESSES_INFO){
+			decrypt(&ctx, buff, sizeof(uint32_t) * 4);
+			memcpy((void *)&info.addresses, buff, sizeof(Addresses));
+			memcpy((void *)&info.program_crc, buff + sizeof(Addresses), sizeof(uint32_t));
+			if(crc32((char *)&info.addresses.from, sizeof(info.addresses.from) + sizeof(info.addresses.to)) != info.addresses.addresses_crc){
+				HAL_printf("Crc for addresses is not correct %ux %ux", info.addresses.from, info.addresses.to);
+				loop();
+			}
+			HAL_printf("U said that i must download addresses from %x %x", info.addresses.from, info.addresses.to);
 		}
 		if (header.messageCode == PROGRAM) {
 			uint32_t len = *(uint32_t*)buff;
@@ -190,7 +215,7 @@ int main(void)
 				int from = i;
 				int to = MIN(i + BUF_SIZE, len);
 				askForNextBlock( from, to, timeout);
-				Status result = receiveData( buff, &header, timeout);
+				Status result = receiveData(buff, &header, timeout);
 				decrypt(&ctx, (uint8_t*)buff, to - from);
 				if (result != STATUS_OK) {
 					HAL_printf(
@@ -199,7 +224,7 @@ int main(void)
 					return 2;
 				}
 				if (result == STATUS_OK) {
-					HAL_printf("%d block was received", i / BUF_SIZE);
+					HAL_printf("%d block was received %x %x", i / BUF_SIZE, from, to);
 				}
 
 				Status writeResult = storeBlock(buff, to - from, address + i);
@@ -213,9 +238,15 @@ int main(void)
 				}
 
 			}
-			HAL_FLASH_Lock();
+			if(validate_program((uint8_t *) ADDRESS, info.info.size, info.program_crc)){
+				HAL_printf("Program crc is correct. " );
+			}else{
+				HAL_printf("Program crc is incorrect size: %d, expected %d", info.info.size, info.program_crc);
+				loop();
 			}
+			HAL_FLASH_Lock();
 		}
+	}
 
   /* USER CODE END 2 */
 

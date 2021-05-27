@@ -16,9 +16,14 @@
 #define BAUDRATE 7
 #define TIMEOUT 8
 #define RELEASE 9
-#define SECRET_KEY 10
+#define FIRMWARE_INFO_UPLOAD 10
 #define FIRMWARE_INFO 11
 #define ADDRESSES_INFO 12
+#define UPLOAD_CODE 13
+#define END_OF_UPLOAD 14
+#define UPLOAD_DATA 15
+#define DATA 16
+#define NONE 17
 #define BUF_SIZE (16*16)
 #define START_SESSION 0xAE
 

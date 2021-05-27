@@ -213,5 +213,10 @@ class Transmition:
     BAUDRATE = 7
     TIMEOUT = 8
     RELEASE = 9
-    SECRET_KEY = 10
+    FIRMWARE_INFO_UPLOAD = 10
     IV = 11
+    ADDRESSES_INFO = 12
+    UPLOAD_CODE = 13
+    END_OF_UPLOAD = 14
+    UPLOAD_DATA = 15
+    DATA = 16

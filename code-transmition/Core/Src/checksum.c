@@ -16,3 +16,7 @@ uint32_t crc32(const char *s,size_t n) {
 
 	return ~crc;
 }
+
+int validate_program(uint8_t * address, size_t n, uint32_t expected_crc){
+	return crc32(address, n) == expected_crc;
+}
