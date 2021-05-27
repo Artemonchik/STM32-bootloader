@@ -10,6 +10,9 @@ using System.Threading;
 using System.Diagnostics.Tracing;
 using System.Windows.Forms;
 using System.ComponentModel.Design;
+//using System.Runtime.Remoting.Messaging;
+using System.Diagnostics;
+using BootloaderFileFormat;
 
 namespace Flasher
 {
@@ -34,35 +37,35 @@ namespace Flasher
             }
             catch (UnauthorizedAccessException Ex)
             {
-                Console.WriteLine(Ex.ToString());
-                Console.WriteLine("Access is denied to the port./n");
+                Debug.WriteLine(Ex.ToString());
+                Debug.WriteLine("Access is denied to the port.");
                 serialPort.Close();
             }
             catch (ArgumentOutOfRangeException Ex)
             {
-                Console.WriteLine(Ex.ToString());
-                Console.WriteLine("One of the properties is invalid/n");
+                Debug.WriteLine(Ex.ToString());
+                Debug.WriteLine("One of the properties is invalid");
                 serialPort.Close();
             }
             catch (IOException Ex)
             {
-                Console.WriteLine(Ex.ToString());
-                Console.WriteLine("The port is in an invalid state/n");
+                Debug.WriteLine(Ex.ToString());
+                Debug.WriteLine("The port is in an invalid state");
                 serialPort.Close();
             }
             catch (InvalidOperationException Ex)
             {
-                Console.WriteLine(Ex.ToString());
-                Console.WriteLine("SerialPort is already open/n");
+                Debug.WriteLine(Ex.ToString());
+                Debug.WriteLine("SerialPort is already open");
                 serialPort.Close();
             }
-            Console.WriteLine("SerialPort is open/n");
+            Debug.WriteLine("SerialPort is open");
             return serialPort;
         }
 
         public static void Disconnect(SerialPort serialPort)
         {
-            serialPort.DiscardInBuffer();
+           // serialPort.DiscardInBuffer();
             serialPort.Close();
         }
         /// <summary>
@@ -72,15 +75,14 @@ namespace Flasher
         /// <param name="baudRate"> Baud rate for the serial port </param>
         /// <param name="dataBits"> Standard number of data bits per byte</param>
         /// <param name="stopBits">Stop Bits for SerialPort </param>
-        /// <param name="code">binary data to transmit</param>
-        public void Upload(SerialPort serialPort, int baudRate, byte[] code, Form1 parentForm)
+        /// <param name="bootloaderFile">binary data to transmit</param>
+        public void Upload(SerialPort serialPort, int baudRate, BootloaderFile bootloaderFile, Form1 parentForm)
         {
 
-            Console.WriteLine("Waiting for the start code");
-            Console.Write(code);
+            Debug.WriteLine("Waiting for the start code");
 
             //waiting for communication with SerialPort
-            Console.WriteLine("Waiting for communication");
+            Debug.WriteLine("Waiting for communication");
             while (true) 
             {
                 if (serialPort.BytesToRead > 0)
@@ -89,19 +91,19 @@ namespace Flasher
                     serialPort.Read(oneByteToRead, 0, sizeof(byte) * 1);
                     int transmissionCode = BitConverter.ToInt32(oneByteToRead, 0);
                     if (transmissionCode == Transmission.START_CODE) {
-                        Console.WriteLine("Session successful started");
+                        Debug.WriteLine("Session successful started");
 
                         break;
                     }   
                     else {
-                        Console.WriteLine("ERROR IN CODE");
+                        Debug.WriteLine("ERROR IN CODE");
 
                     }
                 }
             }
             serialPort.Write(BitConverter.GetBytes(Transmission.START_CODE), 0, 1);
-            Console.WriteLine("Communication was started");
-            TransmittedData.TransmissionOfData(serialPort, baudRate, code, parentForm);
+            Debug.WriteLine("Communication was started");
+            TransmittedData.TransmissionOfData(serialPort, baudRate, bootloaderFile, parentForm);
             Disconnect(serialPort);
         }
     

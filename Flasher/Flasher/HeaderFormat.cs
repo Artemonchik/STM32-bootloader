@@ -2,6 +2,8 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
+//using System.Runtime.Remoting.Messaging;
 using System.Text;
 using System.Threading.Tasks;
 using Force.Crc32;
@@ -34,7 +36,24 @@ namespace Flasher
             PacketNum = BitConverter.ToInt32(data, 8);
             Crc = BitConverter.ToUInt32(data, 12);
         }
+        public static int getHeaderFormatSize() {
+            //return Marshal.SizeOf(typeof(HeaderFormat));
+            return 16;
+        }
 
+
+        public static byte[] HeaderByteFormat(HeaderFormat header)
+        {
+            var memoryStream = new MemoryStream();
+            var binaryWriter = new BinaryWriter(memoryStream);
+
+            binaryWriter.Write(header.MessageCode);
+            binaryWriter.Write(header.Length);
+            binaryWriter.Write(header.PacketNum);
+            binaryWriter.Write(header.Crc);
+            binaryWriter.Close();
+            return memoryStream.ToArray();
+        }
         public static byte[] HeaderByteFormat(int messageCode, int length, int packetNum)
         {
             var memoryStream = new MemoryStream();

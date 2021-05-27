@@ -12,6 +12,7 @@ using System.IO;
 using System.Media;
 using BootloaderFileFormat;
 
+
 namespace Flasher
 {
 
@@ -62,7 +63,7 @@ namespace Flasher
                 {
                     bff = new BootloaderFile(fileName);
                     string result = System.Text.Encoding.UTF8.GetString(bff.IV);
-                    //Console.WriteLine($"{ bff.ToFancyString()} IV: {result} ");
+                    //Debug.WriteLine($"{ bff.ToFancyString()} IV: {result} ");
                     richTextBox1.Text = bff.ToFancyString();
                 }
                 catch (Exception ex) 
@@ -94,7 +95,7 @@ namespace Flasher
             try
             {
                 //var bin =  ReadFile(file_name);
-                new Client().Upload( serialPort, baudrate, bff.Data, this);
+                new Client().Upload( serialPort, baudrate, bff, this);
             }
             catch (Exception ex)
             {
