@@ -13,3 +13,4 @@ C:\Users\KazukiNagasa\source\repos\Flasher\Flasher\obj\Debug\Flasher.exe
 C:\Users\KazukiNagasa\source\repos\Flasher\Flasher\obj\Debug\Flasher.pdb
 C:\Users\KazukiNagasa\source\repos\Flasher\Flasher\bin\Debug\Crc32.NET.dll
 C:\Users\KazukiNagasa\source\repos\Flasher\Flasher\bin\Debug\Crc32.NET.xml
+C:\Users\KazukiNagasa\source\repos\Flasher\Flasher\obj\Debug\Flasher.csproj.AssemblyReference.cache

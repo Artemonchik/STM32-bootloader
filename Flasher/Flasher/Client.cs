@@ -20,12 +20,18 @@ namespace Flasher
     {
         public const int DataBits = 8;
     }
-
+    static class ClientCodes
+    {
+        public const int CONNECT = 1;
+        public const int UPLOAD = 2;
+        public const int DISCONNECT = 3;
+        public const int DOWNLOAD = 4;
+    }
     class Client
     {
         public const int DEFAULT_BAUDRATE = 115200; 
 
-        public static SerialPort Connect(string portName, int dataBits, StopBits stopBits)
+        public static SerialPort Connect(string portName, int baudRate, int dataBits, StopBits stopBits, BootloaderFile bootloaderFile, Form1 parentForm)
         {
             SerialPort serialPort = new SerialPort(portName, DEFAULT_BAUDRATE, Parity.None, dataBits, stopBits);
             try
@@ -59,13 +65,17 @@ namespace Flasher
                 Debug.WriteLine("SerialPort is already open");
                 serialPort.Close();
             }
+
             Debug.WriteLine("SerialPort is open");
+            TransmittedData.StartCommunication(serialPort);
+            TransmittedData.TransmissionOfData(serialPort, baudRate, bootloaderFile, ClientCodes.CONNECT, parentForm);
             return serialPort;
         }
 
-        public static void Disconnect(SerialPort serialPort)
+        public static void Disconnect(SerialPort serialPort, int baudRate, BootloaderFile bootloaderFile, Form1 parentForm)
         {
-           // serialPort.DiscardInBuffer();
+            TransmittedData.TransmissionOfData(serialPort, baudRate, bootloaderFile, ClientCodes.DISCONNECT, parentForm);
+            serialPort.DiscardInBuffer();
             serialPort.Close();
         }
         /// <summary>
@@ -78,33 +88,7 @@ namespace Flasher
         /// <param name="bootloaderFile">binary data to transmit</param>
         public void Upload(SerialPort serialPort, int baudRate, BootloaderFile bootloaderFile, Form1 parentForm)
         {
-
-            Debug.WriteLine("Waiting for the start code");
-
-            //waiting for communication with SerialPort
-            Debug.WriteLine("Waiting for communication");
-            while (true) 
-            {
-                if (serialPort.BytesToRead > 0)
-                {
-                    byte[] oneByteToRead = new byte[10];
-                    serialPort.Read(oneByteToRead, 0, sizeof(byte) * 1);
-                    int transmissionCode = BitConverter.ToInt32(oneByteToRead, 0);
-                    if (transmissionCode == Transmission.START_CODE) {
-                        Debug.WriteLine("Session successful started");
-
-                        break;
-                    }   
-                    else {
-                        Debug.WriteLine("ERROR IN CODE");
-
-                    }
-                }
-            }
-            serialPort.Write(BitConverter.GetBytes(Transmission.START_CODE), 0, 1);
-            Debug.WriteLine("Communication was started");
-            TransmittedData.TransmissionOfData(serialPort, baudRate, bootloaderFile, parentForm);
-            Disconnect(serialPort);
+            TransmittedData.TransmissionOfData(serialPort, baudRate, bootloaderFile, ClientCodes.UPLOAD, parentForm);
         }
     
 

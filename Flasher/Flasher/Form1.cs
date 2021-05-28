@@ -142,18 +142,19 @@ namespace Flasher
         {
             try
             {
-                serialPort = Client.Connect(portName, Constants.DataBits, StopBits.One);
+                serialPort = Client.Connect(portName, baudrate,  Constants.DataBits, StopBits.One, bff, this);
             }
             catch (Exception ex)
             {
                 /* set message */
                 UpdateStatus(true, ex.Message);
             }
+            //richTextBox2.Text = TransmittedData.recievedMetaInfo.ToFancyString();
         }
 
         private void button4_Click(object sender, EventArgs e)
         {
-            Client.Disconnect(serialPort);
+            Client.Disconnect(serialPort, baudrate, bff, this);
 
         }
     }
