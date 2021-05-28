@@ -87,7 +87,7 @@ void togglePins(){
 int main(void)
 {
   /* USER CODE BEGIN 1 */
-	SCB->VTOR = 0x08020000;
+	SCB->VTOR = 0x08004080;
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/

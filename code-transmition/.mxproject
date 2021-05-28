@@ -9,17 +9,17 @@ CDefines=USE_HAL_DRIVER;STM32F303xC;USE_HAL_DRIVER;USE_HAL_DRIVER;
 [PreviousGenFiles]
 AdvancedFolderStructure=true
 HeaderFileListSize=3
-HeaderFiles#0=C:/Users/Artem/STM32CubeIDE/workspace_1.4.0/code-transmition/Core/Inc/stm32f3xx_it.h
-HeaderFiles#1=C:/Users/Artem/STM32CubeIDE/workspace_1.4.0/code-transmition/Core/Inc/stm32f3xx_hal_conf.h
-HeaderFiles#2=C:/Users/Artem/STM32CubeIDE/workspace_1.4.0/code-transmition/Core/Inc/main.h
+HeaderFiles#0=C:/Users/Artem/STM32CubeIDE/STM32-bootloader/code-transmition/Core/Inc/stm32f3xx_it.h
+HeaderFiles#1=C:/Users/Artem/STM32CubeIDE/STM32-bootloader/code-transmition/Core/Inc/stm32f3xx_hal_conf.h
+HeaderFiles#2=C:/Users/Artem/STM32CubeIDE/STM32-bootloader/code-transmition/Core/Inc/main.h
 HeaderFolderListSize=1
-HeaderPath#0=C:/Users/Artem/STM32CubeIDE/workspace_1.4.0/code-transmition/Core/Inc
+HeaderPath#0=C:/Users/Artem/STM32CubeIDE/STM32-bootloader/code-transmition/Core/Inc
 HeaderFiles=;
 SourceFileListSize=3
-SourceFiles#0=C:/Users/Artem/STM32CubeIDE/workspace_1.4.0/code-transmition/Core/Src/stm32f3xx_it.c
-SourceFiles#1=C:/Users/Artem/STM32CubeIDE/workspace_1.4.0/code-transmition/Core/Src/stm32f3xx_hal_msp.c
-SourceFiles#2=C:/Users/Artem/STM32CubeIDE/workspace_1.4.0/code-transmition/Core/Src/main.c
+SourceFiles#0=C:/Users/Artem/STM32CubeIDE/STM32-bootloader/code-transmition/Core/Src/stm32f3xx_it.c
+SourceFiles#1=C:/Users/Artem/STM32CubeIDE/STM32-bootloader/code-transmition/Core/Src/stm32f3xx_hal_msp.c
+SourceFiles#2=C:/Users/Artem/STM32CubeIDE/STM32-bootloader/code-transmition/Core/Src/main.c
 SourceFolderListSize=1
-SourcePath#0=C:/Users/Artem/STM32CubeIDE/workspace_1.4.0/code-transmition/Core/Src
+SourcePath#0=C:/Users/Artem/STM32CubeIDE/STM32-bootloader/code-transmition/Core/Src
 SourceFiles=;
 
