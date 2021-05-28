@@ -167,14 +167,18 @@ namespace BootloaderFileFormat
             return stringBuilder.ToString();
         }
 
+        /// <summary>
+        /// Packs this BootloaderFile's metadata into a byte array
+        /// </summary>
+        /// <returns>A byte array representing this BootloaderFile's metadata</returns>
         public byte[] GetMetadataAsByteArray()
         {
-            byte[] aZero = {0};
+            byte[] zeros = new byte[32 - ManufacturerName.Length];
             var arr = Array.Empty<byte>();
             arr = arr
                 .Concat(HeaderBytes)
                 .Concat(Encoding.ASCII.GetBytes(ManufacturerName))
-                .Concat(aZero)
+                .Concat(zeros)
                 .Concat(BitConverter.GetBytes(FirmwareVersion[0]))
                 .Concat(BitConverter.GetBytes(FirmwareVersion[1]))
                 .Concat(BitConverter.GetBytes(FirmwareVersion[2]))
@@ -187,6 +191,12 @@ namespace BootloaderFileFormat
             return arr;
         }
 
+        /// <summary>
+        /// Sets this BootloaderFile's metadata to metadata contained in an array.
+        /// This is supposed to be done with an empty BootloaderFile to prevent data loss.
+        /// </summary>
+        /// <param name="arr">Byte array containing metadata</param>
+        /// <exception cref="FormatException">If metadata doesn't contain "HEADER" and "DATA bytes in place"</exception>
         public void GetMetadataFromByteArray(byte[] arr)
         {
             using var reader = new BinaryReader(new MemoryStream(arr));
@@ -195,14 +205,16 @@ namespace BootloaderFileFormat
                 throw new FormatException();
             }
 
-            byte temp;
-            var temparr = Array.Empty<byte>();
-            while ((temp = reader.ReadByte()) != 0)
+            
+            var temparr = reader.ReadBytes(32);
+            ManufacturerName = "";
+            foreach (var b in temparr)
             {
-                temparr = temparr.Append(temp).ToArray();
+                if (b == 0)
+                    break;
+                ManufacturerName += Convert.ToChar(b);
             }
-
-            ManufacturerName = Encoding.ASCII.GetString(temparr);
+            
             for (var i = 0; i < 4; i++)
             {
                 FirmwareVersion[i] = reader.ReadUInt16();
