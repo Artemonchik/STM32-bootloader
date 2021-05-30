@@ -301,12 +301,12 @@ namespace BootloaderFileFormat
         /// <returns>CRC32</returns>
         public static uint CalculateCrc32(byte[] arr)
         {
-            var crc=0xFFFFFFFF;
+            uint crc=0xFFFFFFFF;
             foreach (var t in arr)
             {
-                var ch = t;
+                var ch = (sbyte)t;
                 for(var j=0; j < 8; j++) {
-                    var b = (ch ^ crc) & 1;
+                    uint b = (uint)(ch ^ crc) & 1;
                     crc >>= 1;
                     if (b != 0)
                         crc ^= 0xEDB88320;
