@@ -243,17 +243,12 @@ namespace BootloaderFileFormat
         /// <returns>Encrypted byte array</returns>
         public static byte[] Encrypt(IReadOnlyList<byte> arr, byte[] key, ref BootloaderFile file)
         {
-            var padArr = new byte[arr.Count + 16 - arr.Count % 16];
+            var padArr = new byte[arr.Count];
             var temp = new byte[padArr.Length];
             
             for (var i = 0; i < arr.Count; i++)
             {
                 padArr[i] = arr[i];
-            }
-
-            for (var i = arr.Count; i < padArr.Length; i++)
-            {
-                padArr[i] = 0xFF;
             }
             var myCrypt = Aes.Create();
             myCrypt.KeySize = 256;
@@ -306,7 +301,7 @@ namespace BootloaderFileFormat
             {
                 var ch = (sbyte)t;
                 for(var j=0; j < 8; j++) {
-                    uint b = (uint)(ch ^ crc) & 1;
+                    var b = (uint)((ch ^ crc) & 1);
                     crc >>= 1;
                     if (b != 0)
                         crc ^= 0xEDB88320;

@@ -3,8 +3,10 @@ using System.IO;
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
+using System.Text;
 using BootloaderFileFormat;
 using CommandLine;
+using Force.Crc32;
 
 namespace BootloaderFileGenerator
 {
@@ -88,12 +90,9 @@ namespace BootloaderFileGenerator
             }
             
             // calculate CRC32
-            var dataCrc = Utilities.CalculateCrc32(rawFirmwareBinaryList.ToArray());
-            var addrCrc = Utilities.CalculateCrc32(
-                BitConverter.GetBytes(startAddr)
-                    .Concat(BitConverter.GetBytes(endAddr))
-                    .ToArray()
-                );
+            var addrCrc = Crc32Algorithm.Compute(BitConverter.GetBytes(startAddr).Concat(BitConverter.GetBytes(endAddr)).ToArray());
+            var dataCrc = Crc32Algorithm.Compute(rawFirmwareBinaryList.ToArray());
+            
             var firstBlock = 
                 BitConverter.GetBytes(addrCrc)
                     .Concat(BitConverter.GetBytes(startAddr))
