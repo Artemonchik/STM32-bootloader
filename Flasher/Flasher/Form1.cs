@@ -11,7 +11,7 @@ using System.IO.Ports;
 using System.IO;
 using System.Media;
 using BootloaderFileFormat;
-
+using System.Diagnostics;
 
 namespace Flasher
 {
@@ -62,8 +62,8 @@ namespace Flasher
                 try
                 {
                     bff = new BootloaderFile(fileName);
-                    string result = System.Text.Encoding.UTF8.GetString(bff.IV);
-                    //Debug.WriteLine($"{ bff.ToFancyString()} IV: {result} ");
+                    string result = BitConverter.ToString(bff.IV);
+                    Debug.WriteLine($"{ bff.ToFancyString()} IV: {result} ");
                     richTextBox1.Text = bff.ToFancyString();
                 }
                 catch (Exception ex) 
@@ -149,7 +149,7 @@ namespace Flasher
                 /* set message */
                 UpdateStatus(true, ex.Message);
             }
-            //richTextBox2.Text = TransmittedData.recievedMetaInfo.ToFancyString();
+            richTextBox2.Text = TransmittedData.recievedMetaInfo.ToFancyString();
         }
 
         private void button4_Click(object sender, EventArgs e)

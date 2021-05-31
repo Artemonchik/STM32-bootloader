@@ -25,7 +25,7 @@ namespace Flasher
         public const int FIRMWARE_INFO = 11;
         public const int ADDRESSES_INFO = 12;
 
-        public static int[] TransmissionForConnect = { BAUDRATE };
+        public static int[] TransmissionForConnect = { BAUDRATE, FIRMWARE_INFO_FROM_BOOTLOADER, 100};
         public static int[] TransmissionForUpload = { BAUDRATE, FIRMWARE_INFO, ADDRESSES_INFO, PROGRAM, 100};
         public static int[] TransmissionForDisconnect = { BAUDRATE, RELEASE, 100 };
     }
@@ -103,7 +103,7 @@ namespace Flasher
                     transmissionCode = Transmission.TransmissionForUpload[state];
                     //state = (state + 1) % Transmission.TransmissionForUpload.Length;
                     state++;
-                    if (Transmission.TransmissionForUpload.Length + 1 == state)
+                    if (Transmission.TransmissionForUpload.Length == state)
                     {
                         breakFlag = 1;
                         state = 0;
@@ -202,7 +202,7 @@ namespace Flasher
                         uint t = BitConverter.ToUInt32(recievedData.Data, 4);
                         Debug.WriteLine($"{f} {t} and len of sended data is {bootloaderFile.Data.Skip((int)f).Take((int)(t - f)).ToArray().Length}");
                         Send.SendData(serialPort, Transmission.PROGRAM, bootloaderFile.Data.Skip((int)f).Take((int)(t - f)).ToArray().Length, bootloaderFile.Data.Skip((int)f).Take((int)(t - f)).ToArray());
-                        currentBytesSended += bootloaderFile.Data.Skip((int)f).Take((int)(t - f)).ToArray().Length;
+                        currentBytesSended += ((int)(t - f));
                         parentForm.ProgressChanged((int)(100 * currentBytesSended / bootloaderFile.Data.Length));
                         continue;
                     }
