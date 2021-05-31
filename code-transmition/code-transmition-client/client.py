@@ -7,7 +7,7 @@ import sys
 from security import *
 from data_transmition import *
 
-block_size = 16*16*3*4
+block_size = 16 * 16 * 3 * 4
 serial_port = serial.Serial(port="COM7", baudrate=115200,
                             bytesize=8, timeout=None, stopbits=serial.STOPBITS_ONE)
 

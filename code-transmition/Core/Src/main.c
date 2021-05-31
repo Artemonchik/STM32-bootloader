@@ -127,7 +127,7 @@ int main(void)
 	uint32_t timeout = 3600;
 	HAL_StatusTypeDef res = startSession();
 	if (res != HAL_OK) {
-		if(!validate_program((uint8_t *) ADDRESS, info.info.size, info.program_crc)){
+		if(!validate_program((const char  *) ADDRESS, info.info.size, info.program_crc)){
 			loop();
 		}
 		bootloader_jump_to_user_app(address);
@@ -154,7 +154,6 @@ int main(void)
 		if(header.messageCode == FIRMWARE_INFO){
 			memcpy((void *)&info, (void*)&buff[0], sizeof(Firmware_info));
 			AES_init_ctx_iv(&ctx, key, info.info.iv);
-			HAL_printf("OK, iv is: %s", info.info.iv);
 		}if(header.messageCode == FIRMWARE_INFO_UPLOAD){
 			makeHeader(&header, FIRMWARE_INFO_UPLOAD, sizeof(info.info));
 			memcpy(buff, (void *)&info.info, sizeof(info.info));
@@ -238,11 +237,12 @@ int main(void)
 				}
 
 			}
-			if(validate_program((uint8_t *) ADDRESS, info.info.size, info.program_crc)){
+
+			if(validate_program((const char *) ADDRESS, info.info.size, info.program_crc)){
 				HAL_printf("Program crc is correct. " );
 			}else{
-				HAL_printf("Program crc is incorrect size: %d, expected %d", info.info.size, info.program_crc);
-				loop();
+				HAL_printf("Program crc is incorrect size: %d, expected %d, got %d, len %d", info.info.size, info.program_crc, crc32((const char *) (ADDRESS), info.info.size), len);
+				//loop();
 			}
 			HAL_FLASH_Lock();
 		}
