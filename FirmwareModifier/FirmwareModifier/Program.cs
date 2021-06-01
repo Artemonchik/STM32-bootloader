@@ -32,7 +32,7 @@ namespace FirmwareModifier
                 {
                     txt = txt.Append((char)reader.Read()).ToArray();
                 }
-
+                reader.Close();
                 string str = new(txt);
 
                 var pattern =
@@ -67,6 +67,7 @@ namespace FirmwareModifier
                 File.Delete(opts.ModifyLinker);
                 using var writer = new StreamWriter(opts.ModifyLinker);
                 writer.Write(newStr);
+                writer.Close();
             }
         }
     }

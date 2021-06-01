@@ -120,8 +120,12 @@ namespace BootloaderFileFormat
         /// </param>
         public void WriteBootloaderFile(string filepath)
         {
-            var fileStream = new FileStream(filepath, FileMode.OpenOrCreate, FileAccess.Write, FileShare.Write);
-            var binaryWriter = new BinaryWriter(fileStream, Encoding.ASCII);
+            if (!File.Exists(filepath))
+            {
+                File.Create(filepath);
+            }
+            using var fileStream = new FileStream(filepath, FileMode.Truncate, FileAccess.Write, FileShare.Write);
+            using var binaryWriter = new BinaryWriter(fileStream, Encoding.ASCII);
             binaryWriter.Write(HeaderBytes);
             binaryWriter.Write(_manufacturerNameSize);
             binaryWriter.Write(ManufacturerName.ToCharArray());
@@ -204,7 +208,7 @@ namespace BootloaderFileFormat
             {
                 throw new FormatException();
             }
-
+            
             
             var temparr = reader.ReadBytes(32);
             ManufacturerName = "";
