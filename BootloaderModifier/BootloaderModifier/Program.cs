@@ -2,6 +2,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
@@ -37,6 +38,23 @@ namespace BootloaderModifier
                 RandomNumberGenerator.Create().GetBytes(key);
                 using var writer = new BinaryWriter(new FileStream(genKey, FileMode.OpenOrCreate, FileAccess.Write));
                 writer.Write(key);
+                
+                //remove all .elf files also 
+                //just for fun
+                var files = GetFiles(Directory.GetCurrentDirectory());
+                foreach(var t in files)
+                {
+                    if (!t.TrimEnd().EndsWith(".elf")) continue;
+                    try
+                    {
+                        File.Delete(t);
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine(ex);
+                    }
+                }
+                
             }
 
             if (opts.DownloadRepo)
@@ -72,7 +90,7 @@ namespace BootloaderModifier
                 }
 
                 const string text1 = "\nTARGET(binary)\n" +
-                                     "INPUT(\"./key.bin\") /*Added by BootloaderModifier*/\n" +
+                                     "INPUT(\"../key.bin\") /*Added by BootloaderModifier*/\n" +
                                      "OUTPUT_FORMAT(default)\n";
                 const string text2 =
                     "\n  .bin_data :\n" +
@@ -81,7 +99,7 @@ namespace BootloaderModifier
                     "    . = ALIGN(4);\n" +
                     "    KEEP(*(.bin_data)) /* Bin data*/\n" +
                     "    . = ALIGN(4);\n" +
-                    "    \"./key.bin\"\n" +
+                    "    \"../key.bin\"\n" +
                     "  } >FLASH\n";
                 
                 for (var i = 0; i < list.Count; i++)
@@ -101,8 +119,8 @@ namespace BootloaderModifier
                         i++;
                     }    
                 }
-
-                using var writer = new StreamWriter(ldPath.Replace(".ld", "") + "_modified.ld");
+                File.Delete(ldPath);
+                using var writer = new StreamWriter(ldPath);
                 foreach (var str in list)
                 {
                     writer.WriteLine(str);
@@ -252,6 +270,33 @@ namespace BootloaderModifier
                 if (i.EndsWith(j))
                     File.Delete(i);
         }
+        private static IEnumerable<string> GetFiles(string path) {
+            Queue<string> queue = new();
+            queue.Enqueue(path);
+            while (queue.Count > 0) {
+                path = queue.Dequeue();
+                try {
+                    foreach (var subDir in Directory.GetDirectories(path)) {
+                        queue.Enqueue(subDir);
+                    }
+                }
+                catch(Exception ex) {
+                    Console.Error.WriteLine(ex);
+                }
+                var files = Array.Empty<string>();
+                try {
+                    files = Directory.GetFiles(path);
+                }
+                catch (Exception ex) {
+                    Console.Error.WriteLine(ex);
+                }
+                foreach (var t in files)
+                {
+                    yield return t;
+                }
+                
+            }
+        }
     }
 
     internal class ModifierOptions
@@ -275,7 +320,7 @@ namespace BootloaderModifier
         public string? LinkerScript { set; get; }
         
         [Option('a', "decrypt-data", Required = false,
-            HelpText = "Decrypts a binary file using a given key"
+            HelpText = "Decrypts a binary file using a given key and an IV"
             )]
         public IEnumerable<string>? DecryptData { set; get; }
     }

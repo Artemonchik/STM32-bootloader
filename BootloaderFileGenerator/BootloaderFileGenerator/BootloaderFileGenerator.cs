@@ -3,7 +3,6 @@ using System.IO;
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
-using System.Text;
 using BootloaderFileFormat;
 using CommandLine;
 using Force.Crc32;

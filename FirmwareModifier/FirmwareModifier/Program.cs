@@ -21,11 +21,6 @@ namespace FirmwareModifier
         {
             if (opts.ModifyLinker != String.Empty)
             {
-                if (opts.BootloaderSize == null)
-                {
-                    throw new ArgumentException("Bootloader size was not provided.");
-                }
-
                 var bootloaderSize =
                     Convert.ToUInt32(opts.BootloaderSize);
 
@@ -50,7 +45,7 @@ namespace FirmwareModifier
                         .Groups[2]
                         .ToString(), 
                     16
-                    ) + bootloaderSize + (bootloaderSize % 1024 > 0 ? 1024 : 0) - bootloaderSize % 1024;
+                    ) + bootloaderSize;
                 
                 var length = 
                     Convert.ToUInt32(
@@ -69,7 +64,8 @@ namespace FirmwareModifier
                             length +
                             match.Groups[5]
                         );
-                using var writer = new StreamWriter(opts.ModifyLinker.Remove(opts.ModifyLinker.Length - 3) + "_modified.ld");
+                File.Delete(opts.ModifyLinker);
+                using var writer = new StreamWriter(opts.ModifyLinker);
                 writer.Write(newStr);
             }
         }
@@ -86,7 +82,8 @@ namespace FirmwareModifier
         [Option('s',
             "bootloader-size",
             Required = false,
-            HelpText = "The size of the compiled bootloader in bytes.")]
+            HelpText = "The size of the compiled bootloader in bytes.",
+            Default = "16512")]
         public string? BootloaderSize { set; get; } 
     }
 }
