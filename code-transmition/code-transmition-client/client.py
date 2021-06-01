@@ -28,7 +28,9 @@ serial_port.reset_input_buffer()
 # add zero padding
 while len(code) % 16 != 0:
     code = code + b'\x00'
+print(len(code))
 header = struct.pack("<II", 0x08000000, 0x08040000)
+print(zlib.crc32(code))
 header = struct.pack(f"<I{len(header)}sI", zlib.crc32(header), header, zlib.crc32(code))
 code = header + code
 code_start_address = len(header)

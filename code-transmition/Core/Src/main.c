@@ -215,7 +215,7 @@ int main(void)
 				int to = MIN(i + BUF_SIZE, len);
 				askForNextBlock( from, to, timeout);
 				Status result = receiveData(buff, &header, timeout);
-				decrypt(&ctx, (uint8_t*)buff, to - from);
+				decrypt(&ctx, (uint8_t *)buff, to - from);
 				if (result != STATUS_OK) {
 					HAL_printf(
 							"An error occurred while transferring data: %d block",
@@ -238,10 +238,10 @@ int main(void)
 
 			}
 
-			if(validate_program((const char *) ADDRESS, info.info.size, info.program_crc)){
-				HAL_printf("Program crc is correct. " );
+			if(validate_program((const char *) (ADDRESS), info.info.size, info.program_crc)){
+				HAL_printf("Program crc is correct.");
 			}else{
-				HAL_printf("Program crc is incorrect size: %d, expected %d, got %d, len %d", info.info.size, info.program_crc, crc32((const char *) (ADDRESS), info.info.size), len);
+				HAL_printf("Program crc is incorrect size: %u, expected %u, got %u, len %u", info.info.size, info.program_crc, crc32((const char *) (ADDRESS), info.info.size), len);
 				//loop();
 			}
 			HAL_FLASH_Lock();
