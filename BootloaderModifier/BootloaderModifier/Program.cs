@@ -41,20 +41,23 @@ namespace BootloaderModifier
                 
                 //remove all .elf files also 
                 //just for fun
-                var files = GetFiles(Directory.GetCurrentDirectory());
-                foreach(var t in files)
+                /*var name = Directory.GetParent(Directory.GetCurrentDirectory())?.Name;
+                if (name != null)
                 {
-                    if (!t.TrimEnd().EndsWith(".elf")) continue;
-                    try
+                    var files = GetAllFiles(name);
+                    foreach(var t in files)
                     {
-                        File.Delete(t);
+                        if (!t.TrimEnd().EndsWith(".elf")) continue;
+                        try
+                        {
+                            File.Delete(t);
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine(ex);
+                        }
                     }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine(ex);
-                    }
-                }
-                
+                }*/
             }
 
             if (opts.DownloadRepo)
@@ -63,10 +66,13 @@ namespace BootloaderModifier
 
                 DestroyDotGitDir(tempdir);
 
-                var coreDir = tempdir + "/code-transmition/Core";
+                var srcDir = tempdir + "/code-transmition/Core/Src";
+                var incDir = tempdir + "/code-transmition/Core/Inc";
 
-                if (Directory.Exists("Core")) Directory.Delete("Core", true);
-                Directory.Move(coreDir, "Core");
+                if (Directory.Exists("Core/Src")) Directory.Delete("Core/Src", true);
+                if (Directory.Exists("Core/Inc")) Directory.Delete("Core/Inc", true);
+                Directory.Move(srcDir, "Core/Src");
+                Directory.Move(incDir, "Core/Inc");
                 Directory.Delete(tempdir, true);
                 
                 FilterCoreDir();
@@ -256,7 +262,6 @@ namespace BootloaderModifier
         private static void FilterCoreDir()
         {
             var coreDir = "Core/";
-            Directory.Delete(Path.Combine(coreDir, "Startup"), true);
             var srcFiles = Directory.GetFiles(Path.Combine(coreDir, "Src/"));
             var incFiles = Directory.GetFiles(Path.Combine(coreDir, "Inc/"));
 
@@ -270,7 +275,7 @@ namespace BootloaderModifier
                 if (i.EndsWith(j))
                     File.Delete(i);
         }
-        private static IEnumerable<string> GetFiles(string path) {
+        private static IEnumerable<string> GetAllFiles(string path) {
             Queue<string> queue = new();
             queue.Enqueue(path);
             while (queue.Count > 0) {
