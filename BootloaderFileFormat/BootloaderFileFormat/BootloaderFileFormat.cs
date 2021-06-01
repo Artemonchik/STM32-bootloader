@@ -122,7 +122,8 @@ namespace BootloaderFileFormat
         {
             if (!File.Exists(filepath))
             {
-                File.Create(filepath);
+                var temp = File.Create(filepath);
+                temp.Close();
             }
             using var fileStream = new FileStream(filepath, FileMode.Truncate, FileAccess.Write, FileShare.Write);
             using var binaryWriter = new BinaryWriter(fileStream, Encoding.ASCII);
