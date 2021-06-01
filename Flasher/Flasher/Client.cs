@@ -26,6 +26,8 @@ namespace Flasher
         public const int UPLOAD = 2;
         public const int DISCONNECT = 3;
         public const int DOWNLOAD = 4;
+        public const int DOWNLOAD_DATA = 5;
+        public const int DOWNLOAD_CODE = 6;
     }
     class Client
     {
@@ -90,7 +92,17 @@ namespace Flasher
         {
             TransmittedData.TransmissionOfData(serialPort, baudRate, bootloaderFile, ClientCodes.UPLOAD, parentForm);
         }
-    
+
+        public void DownloadData(SerialPort serialPort, int baudRate, BootloaderFile bootloaderFile, Form1 parentForm)
+        {
+            TransmittedData.TransmissionOfData(serialPort, baudRate, bootloaderFile, ClientCodes.DOWNLOAD_DATA, parentForm);
+        }
+
+        public void DownloadCode(SerialPort serialPort, int baudRate, BootloaderFile bootloaderFile, Form1 parentForm)
+        {
+            TransmittedData.TransmissionOfData(serialPort, baudRate, bootloaderFile, ClientCodes.DOWNLOAD_CODE, parentForm);
+        }
+
 
     }
 }

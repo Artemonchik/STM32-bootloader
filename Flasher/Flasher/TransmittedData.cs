@@ -6,6 +6,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Diagnostics;
 using BootloaderFileFormat;
+using System.IO;
 
 namespace Flasher
 {
@@ -24,10 +25,16 @@ namespace Flasher
         public const int FIRMWARE_INFO_FROM_BOOTLOADER = 10;
         public const int FIRMWARE_INFO = 11;
         public const int ADDRESSES_INFO = 12;
+        public const int DOWNLOAD_CODE = 13;
+        public const int END_OF_DOWNLOAD = 14;
+        public const int DOWNLOAD_DATA = 15;
+        public const int DATA = 15;
 
-        public static int[] TransmissionForConnect = { BAUDRATE, FIRMWARE_INFO_FROM_BOOTLOADER, 100};
-        public static int[] TransmissionForUpload = { BAUDRATE, FIRMWARE_INFO, ADDRESSES_INFO, PROGRAM, 100};
+        public static int[] TransmissionForConnect = { BAUDRATE, FIRMWARE_INFO_FROM_BOOTLOADER, 100 };
+        public static int[] TransmissionForUpload = { BAUDRATE, FIRMWARE_INFO, ADDRESSES_INFO, PROGRAM, 100 };
         public static int[] TransmissionForDisconnect = { BAUDRATE, RELEASE, 100 };
+        public static int[] TransmissionForDownloadCode = { BAUDRATE, DOWNLOAD_CODE, 100 };
+        public static int[] TransmissionForDownloadData = { BAUDRATE, DOWNLOAD_DATA, 100 };
     }
     class TransmittedData
     {
@@ -44,7 +51,11 @@ namespace Flasher
 
         public static int packetCounter = 0;
         public static int transmissionCode = Transmission.FIRMWARE_INFO;
+        public static byte[] downloadedCode = new byte[0];
+        public static byte[] downloadedData = new byte[0];
+        public static byte[] downloadedSmth = new byte[0];
         public static BootloaderFile recievedMetaInfo = new BootloaderFile();
+        public static BootloaderFile downloadedFile = new BootloaderFile();
         public static void StartCommunication(SerialPort serialPort) {
             Debug.WriteLine("Waiting for the start code");
 
@@ -109,6 +120,26 @@ namespace Flasher
                         state = 0;
                     }
                     break;
+                case ClientCodes.DOWNLOAD_CODE:
+                    transmissionCode = Transmission.TransmissionForDownloadCode[state];
+                    //state = (state + 1) % Transmission.TransmissionForUpload.Length;
+                    state++;
+                    if (Transmission.TransmissionForDownloadCode.Length == state)
+                    {
+                        breakFlag = 1;
+                        state = 0;
+                    }
+                    break;
+                case ClientCodes.DOWNLOAD_DATA:
+                    transmissionCode = Transmission.TransmissionForDownloadData[state];
+                    //state = (state + 1) % Transmission.TransmissionForUpload.Length;
+                    state++;
+                    if (Transmission.TransmissionForDownloadData.Length == state)
+                    {
+                        breakFlag = 1;
+                        state = 0;
+                    }
+                    break;
                 case ClientCodes.DISCONNECT:
                     transmissionCode = Transmission.TransmissionForDisconnect[state];
                     state = (state + 1) % Transmission.TransmissionForDisconnect.Length;
@@ -164,6 +195,20 @@ namespace Flasher
                     Debug.WriteLine(BitConverter.ToString(bootloaderFile.FirstBlock));
                     Debug.WriteLine("Addresses Info is sended");
                 }
+                if (transmissionCode == Transmission.DOWNLOAD_CODE) 
+                {
+                    byte[] downloadCodeUselessArray= new byte[1];
+                    Send.SendData(serialPort, Transmission.DOWNLOAD_CODE, 0, downloadCodeUselessArray);
+                    Debug.WriteLine("Code Downloading statred");
+
+                }
+                if (transmissionCode == Transmission.DOWNLOAD_DATA)
+                {
+                    byte[] downloadDataUselessArray = new byte[1];
+                    Send.SendData(serialPort, Transmission.DOWNLOAD_DATA, 0, downloadDataUselessArray);
+                    Debug.WriteLine("Data Downloading statred");
+
+                }
                 if (transmissionCode == Transmission.PROGRAM)
                 {
                     byte[] program = BitConverter.GetBytes(bootloaderFile.Data.Length);
@@ -195,6 +240,19 @@ namespace Flasher
                         Debug.WriteLine("Request for next block received");
                         break;
                     }
+                    else if (recievedData.MessageCode == Transmission.END_OF_DOWNLOAD) 
+                    {
+                        //добавить флаг только для кода
+                        Debug.WriteLine("Code/Data Downloaded");
+                        //downloadedSmth = recievedMetaInfo.GetMetadataAsByteArray();
+                        recievedMetaInfo.FirstBlock = downloadedCode.Take(16).ToArray();
+                        recievedMetaInfo.Data = downloadedCode.Skip(16).ToArray();
+                        //downloadedSmth = recievedMetaInfo.GetMetadataAsByteArray().Concat(downloadedCode).ToArray();
+                        //вынести в форму
+                        //var fileStream = new FileStream(filepath, FileMode.OpenOrCreate, FileAccess.Write, FileShare.Write);
+                        //using var binaryWriter = new BinaryWriter(fileStream, Encoding.ASCII);
+                        //binaryWriter.Write(downloadedSmth);
+                    }
                     else if (recievedData.MessageCode == Transmission.REQUEST)
                     {
                         Debug.WriteLine($"{recievedData.Data}");
@@ -211,6 +269,14 @@ namespace Flasher
                         recievedMetaInfo.GetMetadataFromByteArray(recievedData.Data);
                         Debug.WriteLine("MetaInfo was recieved");
                         continue;
+                    }
+                    else if (recievedData.MessageCode == Transmission.PROGRAM)
+                    {
+                        downloadedCode = downloadedCode.Concat(recievedData.Data).ToArray();
+                    }
+                    else if (recievedData.MessageCode == Transmission.DATA)
+                    {
+                        downloadedData = downloadedData.Concat(recievedData.Data).ToArray();
                     }
                     else
                     {

@@ -19,8 +19,12 @@ namespace Flasher
     public partial class Form1 : Form
     {
         string fileName;
+        string filepath= @"C:\Users\KazukiNagasa\Desktop\Project\Code.bin";
+        string filepath1 = @"C:\Users\KazukiNagasa\Desktop\Project\Data.bin";
         string portName;
         int baudrate;
+        bool isClickedButton2 = false;
+        bool isClickedButton3 = false;
         BootloaderFile bff;
         const int RESTART_FILE_PARAMS = 1;
         const int RESTART_SUCCESS_PARAMS = 2;
@@ -59,17 +63,23 @@ namespace Flasher
             {
                 textBox1.Text = ofd.SafeFileName;
                 fileName = ofd.FileName;
+                Debug.WriteLine($"FilePath: {filepath} ");
                 try
                 {
                     bff = new BootloaderFile(fileName);
                     string result = BitConverter.ToString(bff.IV);
                     Debug.WriteLine($"{ bff.ToFancyString()} IV: {result} ");
                     richTextBox1.Text = bff.ToFancyString();
+                    isClickedButton2 = true;
+                    if (isClickedButton3 == true) {
+                        button1.Enabled = true;
+                    }
                 }
                 catch (Exception ex) 
                 {
                     Restart_Params(RESTART_FILE_PARAMS);
                     UpdateStatus(true, ex.Message);
+                    button1.Enabled = false;
                 }
             }
         }
@@ -80,11 +90,15 @@ namespace Flasher
             if (comboBox1.SelectedIndex == -1)
             {
                 button1.Enabled = false;
+                button2.Enabled = false;
+                button3.Enabled = false;
+                button4.Enabled = false;
+                button5.Enabled = false;
+                button6.Enabled = false;
             }
             else
             {
                 portName = (string)comboBox1.SelectedItem;
-                button1.Enabled = true;
             }
         }
 
@@ -96,21 +110,31 @@ namespace Flasher
             {
                 //var bin =  ReadFile(file_name);
                 new Client().Upload( serialPort, baudrate, bff, this);
+                MessageBox.Show("Success", "Notification", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch (Exception ex)
             {
                 /* set message */
                 UpdateStatus(true, ex.Message);
             }
-            finally
-            {
-                MessageBox.Show("Success", "Notification", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                Restart_Params(RESTART_SUCCESS_PARAMS);
-            }
+            Restart_Params(RESTART_SUCCESS_PARAMS);
         }
         private void ComboBox2_SelectedIndexChanged(object sender, EventArgs e)
         {
-            baudrate = int.Parse((string)comboBox2.SelectedItem);
+            if (comboBox2.SelectedIndex == -1)
+            {
+                button1.Enabled = false;
+                button2.Enabled = false;
+                button3.Enabled = false;
+                button4.Enabled = false;
+                button5.Enabled = false;
+                button6.Enabled = false;
+            }
+            else
+            {
+                baudrate = int.Parse((string)comboBox2.SelectedItem);
+                button3.Enabled = true;
+            }
         }
 
         private void UpdateStatus(bool ding, string text)
@@ -143,6 +167,16 @@ namespace Flasher
             try
             {
                 serialPort = Client.Connect(portName, baudrate,  Constants.DataBits, StopBits.One, bff, this);
+                MessageBox.Show("Connected", "Notification", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                button4.Enabled = true;
+                button5.Enabled = true;
+                button6.Enabled = true;
+                isClickedButton3 = true;
+                if (isClickedButton2 == true) 
+                {
+                    button1.Enabled = true;
+                }
+
             }
             catch (Exception ex)
             {
@@ -154,8 +188,65 @@ namespace Flasher
 
         private void button4_Click(object sender, EventArgs e)
         {
-            Client.Disconnect(serialPort, baudrate, bff, this);
+            try{
+                Client.Disconnect(serialPort, baudrate, bff, this);
+                button1.Enabled = false;
+                button2.Enabled = false;
+                button3.Enabled = true;
+                button4.Enabled = false;
+                button5.Enabled = false;
+                button6.Enabled = false;
+            }
+            catch (Exception ex)
+            {
+                /* set message */
+                UpdateStatus(true, ex.Message);
+            }
 
+        }
+
+        private void button5_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                new Client().DownloadCode(serialPort, baudrate, bff, this);
+                MessageBox.Show("Success", "Notification", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            catch (Exception ex)
+            {
+                /* set message */
+                UpdateStatus(true, ex.Message);
+            }
+            /*
+            if (!File.Exists(filepath))
+            {
+                using (FileStream fs = File.Create(filepath))
+                {
+                    fs.Write(TransmittedData.downloadedSmth, 0, TransmittedData.downloadedSmth.Length);
+                }
+            }*/
+            TransmittedData.recievedMetaInfo.WriteBootloaderFile(filepath);
+            //binaryWriter.Write(downloadedSmth);
+        }
+
+        private void button6_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                new Client().DownloadData(serialPort, baudrate, bff, this);
+            }
+            catch (Exception ex)
+            {
+                /* set message */
+                UpdateStatus(true, ex.Message);
+            }
+            if (!File.Exists(filepath1))
+            {
+                using (FileStream fs = File.Create(filepath1))
+                {
+                    fs.Write(TransmittedData.downloadedData, 0, TransmittedData.downloadedData.Length);
+                }
+            }
         }
     }
 }
