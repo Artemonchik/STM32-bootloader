@@ -120,7 +120,7 @@ int main(void)
 
     /* USER CODE BEGIN 3 */
 	  togglePins();
-	  HAL_Delay(150);
+	  HAL_Delay(40);
   }
   /* USER CODE END 3 */
 }

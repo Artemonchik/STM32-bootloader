@@ -224,8 +224,8 @@ int main(void)
     /* USER CODE BEGIN 3 */
 	  togglePins();
  8004322:	f7ff ff91 	bl	8004248 <togglePins>
-	  HAL_Delay(150);
- 8004326:	2096      	movs	r0, #150	; 0x96
+	  HAL_Delay(40);
+ 8004326:	2028      	movs	r0, #40	; 0x28
  8004328:	f000 f974 	bl	8004614 <HAL_Delay>
 	  togglePins();
  800432c:	e7f9      	b.n	8004322 <main+0x16>

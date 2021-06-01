@@ -164,18 +164,18 @@ int main(void)
 			struct AES_ctx upload_ctx;
 			AES_init_ctx_iv(&upload_ctx, key, info.info.iv);
 			if(isCode){
-				makeHeader(&header, code, sizeof(uint32_t) * 4);
+				makeHeader(&header, PROGRAM, sizeof(uint32_t) * 4);
 				memcpy(buff, (void *)&info.addresses, sizeof(uint32_t) * 4);
 				encrypt(&upload_ctx, buff, sizeof(uint32_t) * 4);
 				sendData(&header, buff, timeout);
 			}
 			uint32_t startAddress = isCode ? ADDRESS : info.addresses.from;
-			uint32_t endAddress = isCode ? (ADDRESS + info.info.size + 16) : info.addresses.to;
+			uint32_t endAddress = isCode ? (ADDRESS + info.info.size) : info.addresses.to;
 			for(int i = 0; i < endAddress - startAddress; i += BUF_SIZE){
 				code = isCode ? PROGRAM : DATA;
 				int from = i;
 				int to = MIN(i + BUF_SIZE, endAddress - startAddress);
-				makeHeader(&header, PROGRAM, to - from);
+				makeHeader(&header, code, to - from);
 				memcpy(buff, (void *) (startAddress + i), to - from);
 				encrypt(&upload_ctx, buff, to - from);
 				sendData(&header, buff, timeout);
