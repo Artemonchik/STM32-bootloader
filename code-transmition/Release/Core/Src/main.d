@@ -26,9 +26,9 @@ Core/Src/main.o: ../Core/Src/main.c ../Core/Inc/main.h \
  ../Drivers/STM32F3xx_HAL_Driver/Inc/stm32f3xx_hal_pwr_ex.h \
  ../Drivers/STM32F3xx_HAL_Driver/Inc/stm32f3xx_hal_uart.h \
  ../Drivers/STM32F3xx_HAL_Driver/Inc/stm32f3xx_hal_uart_ex.h \
- ../Libraries/tiny-AES-c/aes.h ../Core/Inc/transmition_logic.h \
- ../Core/Inc/checksum.h ../Core/Inc/main.h ../Core/Inc/status.h \
- ../Core/Inc/encryption.h ../Core/Inc/checksum.h ../Core/Inc/periphery.h \
+ ../Core/Inc/aes.h ../Core/Inc/transmition_logic.h ../Core/Inc/checksum.h \
+ ../Core/Inc/main.h ../Core/Inc/status.h ../Core/Inc/encryption.h \
+ ../Core/Inc/aes.h ../Core/Inc/checksum.h ../Core/Inc/periphery.h \
  ../Core/Inc/meta_info.h
 
 ../Core/Inc/main.h:
@@ -87,7 +87,7 @@ Core/Src/main.o: ../Core/Src/main.c ../Core/Inc/main.h \
 
 ../Drivers/STM32F3xx_HAL_Driver/Inc/stm32f3xx_hal_uart_ex.h:
 
-../Libraries/tiny-AES-c/aes.h:
+../Core/Inc/aes.h:
 
 ../Core/Inc/transmition_logic.h:
 
@@ -98,6 +98,8 @@ Core/Src/main.o: ../Core/Src/main.c ../Core/Inc/main.h \
 ../Core/Inc/status.h:
 
 ../Core/Inc/encryption.h:
+
+../Core/Inc/aes.h:
 
 ../Core/Inc/checksum.h:
 

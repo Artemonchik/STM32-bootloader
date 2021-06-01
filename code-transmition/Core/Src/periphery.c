@@ -69,7 +69,11 @@ Status transmit(uint8_t * buff, size_t n, uint32_t timeout){
 }
 
 Status receive(uint8_t * buff, size_t n, uint32_t timeout){
-	volatile int a = USART1->RDR;
+#ifdef __STM32F1xx_HAL_H
+		volatile int a = USART1->DR;
+#else
+		volatile int a = USART1->RDR;
+#endif
 	(void)a;
 	HAL_StatusTypeDef res = HAL_UART_Receive(&huart1, buff, (size_t) n, timeout);
 	return __HAL_to_Status(res);

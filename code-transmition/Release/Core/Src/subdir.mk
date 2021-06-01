@@ -4,6 +4,7 @@
 
 # Add inputs and outputs from these tool invocations to the build variables 
 C_SRCS += \
+../Core/Src/aes.c \
 ../Core/Src/checksum.c \
 ../Core/Src/encryption.c \
 ../Core/Src/main.c \
@@ -17,6 +18,7 @@ C_SRCS += \
 ../Core/Src/transmition_logic.c 
 
 OBJS += \
+./Core/Src/aes.o \
 ./Core/Src/checksum.o \
 ./Core/Src/encryption.o \
 ./Core/Src/main.o \
@@ -30,6 +32,7 @@ OBJS += \
 ./Core/Src/transmition_logic.o 
 
 C_DEPS += \
+./Core/Src/aes.d \
 ./Core/Src/checksum.d \
 ./Core/Src/encryption.d \
 ./Core/Src/main.d \
@@ -44,6 +47,8 @@ C_DEPS += \
 
 
 # Each subdirectory must supply rules for building sources it contributes
+Core/Src/aes.o: ../Core/Src/aes.c
+	arm-none-eabi-gcc "$<" -mcpu=cortex-m4 -std=gnu11 -DUSE_HAL_DRIVER -DSTM32F303xC -c -I../Core/Inc -I../Drivers/STM32F3xx_HAL_Driver/Inc -I../Drivers/STM32F3xx_HAL_Driver/Inc/Legacy -I../Drivers/CMSIS/Device/ST/STM32F3xx/Include -I../Drivers/CMSIS/Include -I../Libraries/tiny-AES-c -Os -ffunction-sections -fdata-sections -Wall -fstack-usage -MMD -MP -MF"Core/Src/aes.d" -MT"$@" --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -o "$@"
 Core/Src/checksum.o: ../Core/Src/checksum.c
 	arm-none-eabi-gcc "$<" -mcpu=cortex-m4 -std=gnu11 -DUSE_HAL_DRIVER -DSTM32F303xC -c -I../Core/Inc -I../Drivers/STM32F3xx_HAL_Driver/Inc -I../Drivers/STM32F3xx_HAL_Driver/Inc/Legacy -I../Drivers/CMSIS/Device/ST/STM32F3xx/Include -I../Drivers/CMSIS/Include -I../Libraries/tiny-AES-c -Os -ffunction-sections -fdata-sections -Wall -fstack-usage -MMD -MP -MF"Core/Src/checksum.d" -MT"$@" --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -o "$@"
 Core/Src/encryption.o: ../Core/Src/encryption.c
