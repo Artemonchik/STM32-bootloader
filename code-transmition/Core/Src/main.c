@@ -170,7 +170,7 @@ int main(void)
 				sendData(&header, buff, timeout);
 			}
 			uint32_t startAddress = isCode ? ADDRESS : info.addresses.from;
-			uint32_t endAddress = isCode ? (ADDRESS + info.info.size) : info.addresses.to;
+			uint32_t endAddress = isCode ? (ADDRESS + info.info.size + 16) : info.addresses.to;
 			for(int i = 0; i < endAddress - startAddress; i += BUF_SIZE){
 				code = isCode ? PROGRAM : DATA;
 				int from = i;
