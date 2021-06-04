@@ -6,9 +6,12 @@
     </PropertyGroup>
 
     <ItemGroup>
-      <Reference Include="BootloaderFileFormat, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null">
-        <HintPath>..\..\BootloaderFileFormat\BootloaderFileFormat\bin\Release\net5.0\BootloaderFileFormat.dll</HintPath>
-      </Reference>
+      <PackageReference Include="CommandLineParser" Version="2.8.0" />
+      <PackageReference Include="Crc32.NET" Version="1.2.0" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\..\BootloaderFileFormat\BootloaderFileFormat\BootloaderFileFormat.csproj" />
     </ItemGroup>
 
    

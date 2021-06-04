@@ -47,8 +47,8 @@ code-transmition.bin \
 all: code-transmition.elf secondary-outputs
 
 # Tool invocations
-code-transmition.elf: $(OBJS) $(USER_OBJS) C:\Users\Artem\STM32CubeIDE\workspace_1.4.0\code-transmition\STM32F303VCTX_FLASH.ld
-	arm-none-eabi-gcc -o "code-transmition.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m4 -T"C:\Users\Artem\STM32CubeIDE\workspace_1.4.0\code-transmition\STM32F303VCTX_FLASH.ld" --specs=nosys.specs -Wl,-Map="code-transmition.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
+code-transmition.elf: $(OBJS) $(USER_OBJS) C:\Users\Artem\STM32CubeIDE\STM32-bootloader\code-transmition\STM32F303VCTX_FLASH.ld
+	arm-none-eabi-gcc -o "code-transmition.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m4 -T"C:\Users\Artem\STM32CubeIDE\STM32-bootloader\code-transmition\STM32F303VCTX_FLASH.ld" --specs=nosys.specs -Wl,-Map="code-transmition.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
 	@echo 'Finished building target: $@'
 	@echo ' '
 
