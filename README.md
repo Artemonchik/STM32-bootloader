@@ -6,8 +6,6 @@ The main goal of project is to make STM32-bootloader with encryption
 
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; **Patrushev Borya** 19213<br/>
 
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; **Bortnikov Pavel** 19214<br/>
-
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; **Tarasov Artem** 19214<br/>
 
 ## Mentor:
