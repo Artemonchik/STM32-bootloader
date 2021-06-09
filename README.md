@@ -14,11 +14,13 @@ The main goal of project is to make STM32-bootloader with encryption
 
 ## Documentation:
 
-[Vision](https://github.com/Artemonchik/STM32-bootloader/blob/master/_Vision.pdf)
-
-[Software requirements specification](https://github.com/Artemonchik/STM32-bootloader/blob/master/SRS.docx.pdf)
+[Vision](https://github.com/Artemonchik/STM32-bootloader/blob/master/Vision.pdf)
 
 [Analysis of technical risks](https://github.com/Artemonchik/STM32-bootloader/blob/master/ATR.pdf)
+
+[Software requirements specification](https://github.com/Artemonchik/STM32-bootloader/blob/master/SRS.pdf)
+
+[Software Architecture Document](https://github.com/Artemonchik/STM32-bootloader/blob/master/SAD.pdf)
 
 ## Links of useful programs:
 
@@ -31,4 +33,8 @@ The main goal of project is to make STM32-bootloader with encryption
 ## Release dates
 Prototype - in the end of the 3rd semester (December 2020)
 
-Release - in the end of the 4th semester
+[Presentation](https://github.com/Artemonchik/STM32-bootloader/blob/master/presentation_1.pdf)
+
+Release - in the end of the 4th semester(May 2021)
+
+[Presentation](https://github.com/Artemonchik/STM32-bootloader/blob/master/presentation_2.pdf)
